@@ -103,6 +103,7 @@ userSchema.methods.comparePassword = function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
+// Generate Reset Password Token
 userSchema.methods.generateResetPasswordToken = function () {
   //Generate Token Using Crypto
   const resetToken = crypto.randomBytes(32).toString('hex');
@@ -110,6 +111,37 @@ userSchema.methods.generateResetPasswordToken = function () {
   this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
   this.resetPasswordExpire = Date.now() + (parseInt(process.env.PASSWORD_EXPIRE) || 10) * 60 * 1000; // 10 minutes
   return resetToken;
+};
+
+// Check if account is locked
+userSchema.virtual('isLocked').get(function () {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+});
+
+// Increment login attempts
+userSchema.methods.incrementLoginAttempts = async function () {
+  const MAX_ATTEMPTS = parseInt(process.env.LOGIN_MAX_ATTEMPTS, 10) || 5;
+  const LOCK_MINUTES = parseInt(process.env.LOGIN_LOCK_MINUTES, 10) || 15;
+
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    // lock expired, reset
+    this.loginAttempts = 1;
+    this.lockUntil = undefined;
+  } else {
+    this.loginAttempts += 1;
+    if (this.loginAttempts >= MAX_ATTEMPTS && !this.isLocked) {
+      this.lockUntil = Date.now() + LOCK_MINUTES * 60 * 1000; // 15 min
+    }
+  }
+  await this.save();
+};
+
+// Reset login attempts
+userSchema.methods.resetLoginAttempts = async function () {
+  this.loginAttempts = 0;
+  this.lockUntil = undefined;
+  this.lastLogin = new Date();
+  await this.save();
 };
 
 // Generate OTP

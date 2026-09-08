@@ -21,18 +21,24 @@ exports.registerUser = catchAsyncErrors(async (req, res, next) => {
 
 // Login User
 exports.loginUser = catchAsyncErrors(async (req, res, next) => {
+  const LOCK_MINUTES = parseInt(process.env.LOGIN_LOCK_MINUTES, 10) || 15;
   let { email, password } = req.body;
 
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
   if (!user) return next(new ApiError('Invalid email or password.', 401));
+  if (user.isLocked) return next(new ApiError(`Your account is locked, please try after ${LOCK_MINUTES} min(s)`, 423));
 
   if (user.sourceType !== 'normal') {
     return next(new ApiError(`Please login via ${user.sourceType}.`, 400));
   }
 
   const isPasswordMatched = await user.comparePassword(password);
-  if (!isPasswordMatched) return next(new ApiError('Invalid email or password.', 401));
+  if (!isPasswordMatched) {
+    await user.incrementLoginAttempts();
+    return next(new ApiError('Invalid email or password.', 401));
+  }
 
+  await user.resetLoginAttempts();
   sendToken(user, 200, res, 'Logged in successfully');
 });
 
