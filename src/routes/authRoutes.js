@@ -2,7 +2,7 @@ const express = require('express');
 
 const { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordParamsSchema, resetPasswordSchema } = require('../validators/authValidator');
 const { validate } = require('../middlewares/validate');
-const { registerUser, loginUser, logoutUser, forgotPassword, resetPassword } = require('../controllers/authController');
+const { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, refreshToken } = require('../controllers/authController');
 const decryptPasswordMiddleware = require('../middlewares/decryptPasswordMiddleware');
 const { isAuthenticatedUser } = require('../middlewares/auth');
 const { authLimiter, forgotPasswordLimiter } = require('../middlewares/rateLimiter');
@@ -19,7 +19,7 @@ router.post(
   validate(resetPasswordSchema, 'body'),
   resetPassword,
 );
-
+router.get('/refresh-token', refreshToken);
 router.get('/logout', isAuthenticatedUser, logoutUser);
 
 module.exports = router;

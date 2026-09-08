@@ -1,5 +1,6 @@
 const logger = require('../utils/logger');
 const ApiError = require('../utils/ApiError');
+const { getClearCookieOptions } = require('../utils/cookieOptions');
 
 /**
  * Global Error Handler Middleware
@@ -49,14 +50,13 @@ const errorHandler = (err, req, res, next) => {
 
   // ========== JWT ERRORS ==========
 
-  // Token tampered/invalid
-  if (err.name === 'JsonWebTokenError') {
-    const message = 'Your session has timed out. Please login.';
-    error = new ApiError(message, 401);
-  }
-
-  // Token expired after 7d
-  if (err.name === 'TokenExpiredError') {
+  // Token expired after 7d / Token tampered/invalid
+  if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+    // If this error came from refresh route, clear cookies
+    if (req.path.includes('refresh-token')) {
+      res.clearCookie('token', getClearCookieOptions());
+      res.clearCookie('refreshToken', getClearCookieOptions());
+    }
     const message = 'Your session has timed out. Please login again.';
     error = new ApiError(message, 401);
   }

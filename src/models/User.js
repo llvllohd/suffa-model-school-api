@@ -90,7 +90,12 @@ userSchema.pre('save', async function (next) {
 
 // Generate Token
 userSchema.methods.generateToken = function () {
-  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRATION || '7d' });
+  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRATION || '15m' });
+};
+
+// Generate Refresh Token
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d' });
 };
 
 // Compare Password

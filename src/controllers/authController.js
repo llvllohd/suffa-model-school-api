@@ -4,7 +4,10 @@ const ApiError = require('../utils/ApiError');
 const sendToken = require('../utils/sendToken');
 const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const { getCookieOptionsForToken, getClearCookieOptions } = require('../utils/cookieOptions');
 
+// Register User
 exports.registerUser = catchAsyncErrors(async (req, res, next) => {
   const { name, email, phone, password } = req.body;
 
@@ -84,15 +87,35 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
   sendToken(user, 200, res, 'Your password has been changed successfully');
 });
 
+// Refresh Token
+exports.refreshToken = catchAsyncErrors(async (req, res, next) => {
+  const { refreshToken } = req.cookies;
+  if (!refreshToken) {
+    return next(new ApiError('Your session has timed out. Please login.', 401));
+  }
+
+  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+  const user = await User.findById(decoded.id);
+  if (!user) {
+    return next(new ApiError('Your session has timed out. Please login.', 401));
+  }
+
+  const token = user.generateToken();
+
+  res
+    .status(200)
+    .cookie('token', token, getCookieOptionsForToken()) // 15 minutes for access token
+    .json({
+      success: true,
+      message: 'Token refreshed successfully',
+    });
+});
+
 // Logout User
 exports.logoutUser = catchAsyncErrors(async (req, res, next) => {
-  res.cookie('token', null, {
-    expires: new Date(0),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    path: '/',
-  });
+  res.clearCookie('token', getClearCookieOptions());
+  res.clearCookie('refreshToken', getClearCookieOptions());
 
   res.status(200).json({
     status: true,

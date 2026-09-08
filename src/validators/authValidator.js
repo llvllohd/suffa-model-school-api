@@ -81,15 +81,15 @@ exports.resetPasswordParamsSchema = Joi.object({
 });
 
 exports.resetPasswordSchema = Joi.object({
-  password: Joi.string().trim().min(8).max(128).required().messages({
+  password: Joi.string().min(8).max(128).required().messages({
     'any.required': 'Invalid password',
     'string.empty': 'Invalid password',
-    'string.min': 'Password should have atleast 8 characters',
+    'string.min': 'Password should have at least 8 characters',
     'string.max': 'Password must be less than 128 characters',
   }),
-  confirmPassword: Joi.string().trim().required().valid(Joi.ref('password')).messages({
-    'any.required': 'Passwords does not match',
-    'string.empty': 'Passwords does not match',
-    'any.only': 'Passwords does not match',
+  confirmPassword: Joi.string().required().valid(Joi.ref('password')).messages({
+    'any.required': 'Passwords do not match',
+    'string.empty': 'Passwords do not match',
+    'any.only': 'Passwords do not match',
   }),
 });
