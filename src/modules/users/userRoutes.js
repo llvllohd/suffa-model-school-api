@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-const { isAuthenticatedUser } = require('../../middlewares/auth');
 const { getMe } = require('./userController');
+const { isAuthenticatedUser } = require('../../middlewares/authMiddleware');
+const asyncHandlerMiddleware = require('../../middlewares/asyncHandlerMiddleware');
 
-router.get('/me', isAuthenticatedUser, getMe);
+router.get('/me', isAuthenticatedUser, asyncHandlerMiddleware(getMe));
 
 module.exports = router;

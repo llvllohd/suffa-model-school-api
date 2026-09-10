@@ -1,5 +1,5 @@
 const logger = require('../utils/logger');
-const ApiError = require('../utils/ApiError');
+const ApiError = require('../utils/apiError');
 const { getClearCookieOptions } = require('../utils/cookieOptions');
 
 /**

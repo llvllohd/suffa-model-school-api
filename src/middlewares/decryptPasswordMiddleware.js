@@ -1,5 +1,5 @@
-const decryptPassword = require('../utils/decryptPassword');
-const catchAsyncErrors = require('./catchAsyncErrors');
+const { decryptPassword } = require('../utils/encryption');
+const catchAsyncErrors = require('./asyncHandlerMiddleware');
 
 const decryptPasswordMiddleware = catchAsyncErrors(async (req, res, next) => {
   const fieldsToDecrypt = ['password', 'oldPassword', 'newPassword', 'confirmPassword'];

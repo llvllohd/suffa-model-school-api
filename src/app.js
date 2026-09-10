@@ -4,10 +4,10 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
 
-const httpLogger = require('./middlewares/httpLogger');
+const httpLogger = require('./middlewares/httpLoggerMiddleware');
 // const requestIdHeader = require('./middlewares/requestIdHeader');
-const errorHandler = require('./middlewares/errorHandler');
-const ApiError = require('./utils/ApiError');
+const errorHandler = require('./middlewares/errorMiddleware');
+const ApiError = require('./utils/apiError');
 
 // Routes imports
 const authRoutes = require('./modules/auth/authRoutes');

@@ -1,6 +1,5 @@
 const User = require('../users/userModel');
-const catchAsyncErrors = require('../../middlewares/catchAsyncErrors');
-const ApiError = require('../../utils/ApiError');
+const ApiError = require('../../utils/apiError');
 const sendToken = require('../../utils/sendToken');
 const sendEmail = require('../../utils/sendEmail');
 const crypto = require('crypto');
@@ -8,16 +7,16 @@ const jwt = require('jsonwebtoken');
 const { getCookieOptionsForToken, getClearCookieOptions } = require('../../utils/cookieOptions');
 
 // Register User
-exports.registerUser = catchAsyncErrors(async (req, res, next) => {
+exports.registerUser = async (req, res, next) => {
   const { name, email, phone, password } = req.body;
   const userExists = await User.findOne({ email });
   if (userExists) return next(new ApiError('Email already exists.', 400));
   const user = await User.create({ name, email, password, sourceType: 'normal', ...(phone && { phone }) });
   sendToken(user, 201, res, 'Registered successfully');
-});
+};
 
 // Login User
-exports.loginUser = catchAsyncErrors(async (req, res, next) => {
+exports.loginUser = async (req, res, next) => {
   const LOCK_MINUTES = parseInt(process.env.LOGIN_LOCK_MINUTES, 10) || 15;
   let { email, password } = req.body;
   const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
@@ -33,10 +32,10 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
   }
   await user.resetLoginAttempts();
   sendToken(user, 200, res, 'Logged in successfully');
-});
+};
 
 // Forgot Password
-exports.forgotPassword = catchAsyncErrors(async (req, res, next) => {
+exports.forgotPassword = async (req, res, next) => {
   const { email, url } = req.body;
   const user = await User.findOne({ email });
   if (!user) return next(new ApiError('Invalid email', 404));
@@ -59,10 +58,10 @@ exports.forgotPassword = catchAsyncErrors(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
     return next(new ApiError(error.message, 500));
   }
-});
+};
 
 // Reset Password
-exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
+exports.resetPassword = async (req, res, next) => {
   const { token } = req.params;
   const { password } = req.body; // already decrypted & validated by Joi
 
@@ -80,10 +79,10 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
   await user.save(); // keep validations ON
 
   sendToken(user, 200, res, 'Your password has been changed successfully');
-});
+};
 
 // Refresh Token
-exports.refreshToken = catchAsyncErrors(async (req, res, next) => {
+exports.refreshToken = async (req, res, next) => {
   const { refreshToken } = req.cookies;
   if (!refreshToken) {
     return next(new ApiError('Your session has timed out. Please login.', 401));
@@ -101,14 +100,14 @@ exports.refreshToken = catchAsyncErrors(async (req, res, next) => {
       success: true,
       message: 'Token refreshed successfully',
     });
-});
+};
 
 // Logout User
-exports.logoutUser = catchAsyncErrors(async (req, res, next) => {
+exports.logoutUser = async (req, res, next) => {
   res.clearCookie('token', getClearCookieOptions());
   res.clearCookie('refreshToken', getClearCookieOptions());
   res.status(200).json({
     status: true,
     message: 'Logged out successfully.',
   });
-});
+};

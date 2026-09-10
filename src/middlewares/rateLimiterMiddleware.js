@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const ApiError = require('../utils/ApiError');
+const ApiError = require('../utils/apiError');
 
 exports.authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

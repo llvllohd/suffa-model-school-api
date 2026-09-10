@@ -1,17 +1,16 @@
-const { HALL_UPDATABLE_FIELDS } = require('../../constants/hallFields');
-const catchAsyncErrors = require('../../middlewares/catchAsyncErrors');
+const { HALL_UPDATABLE_FIELDS } = require('./hallConstants');
 const Hall = require('./hallModel');
-const ApiError = require('../../utils/ApiError');
+const ApiError = require('../../utils/apiError');
 const { buildFilter, buildSearch } = require('../../utils/queryBuilder');
 
 // Create a new hall
-exports.createHall = catchAsyncErrors(async (req, res) => {
+exports.createHall = async (req, res) => {
   // req.body is already validated & cleaned by middleware
   const hall = await Hall.create(req.body);
   res.status(201).json({ success: true, message: 'Hall created successfully.', data: hall });
-});
+};
 
-exports.getAllHalls = catchAsyncErrors(async (req, res) => {
+exports.getAllHalls = async (req, res) => {
   const q = req.query; // already validated & sanitized
 
   const filter = buildFilter(q);
@@ -47,20 +46,20 @@ exports.getAllHalls = catchAsyncErrors(async (req, res) => {
     limit: q.limit,
     data: halls,
   });
-});
+};
 
 // Get hall details
-exports.getHallById = catchAsyncErrors(async (req, res, next) => {
+exports.getHallById = async (req, res, next) => {
   const hall = await Hall.findOne({
     _id: req.params.id,
     isActive: true,
   });
   if (!hall) return next(new ApiError('Hall not found.', 404));
   res.status(200).json({ success: true, data: hall });
-});
+};
 
 // Update hall details
-exports.updateHall = catchAsyncErrors(async (req, res, next) => {
+exports.updateHall = async (req, res, next) => {
   const body = {};
   HALL_UPDATABLE_FIELDS.forEach((f) => {
     if (req.body[f] !== undefined) body[f] = req.body[f];
@@ -74,11 +73,11 @@ exports.updateHall = catchAsyncErrors(async (req, res, next) => {
   Object.assign(hall, body);
   await hall.save(); // triggers your pre('validate') price check
   res.status(200).json({ success: true, message: 'Hall updated successfully.', data: hall });
-});
+};
 
 // Delete (deactivate) a hall
-exports.deleteHall = catchAsyncErrors(async (req, res, next) => {
+exports.deleteHall = async (req, res, next) => {
   const hall = await Hall.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
   if (!hall) return next(new ApiError('Hall not found', 404));
   res.status(200).json({ success: true, message: 'Hall deleted successfully.' });
-});
+};
