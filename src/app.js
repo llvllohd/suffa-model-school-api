@@ -64,7 +64,7 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/halls', publicHallRoutes);
-app.use('api/v1/admin/halls', adminHallRoutes);
+app.use('/api/v1/admin/halls', adminHallRoutes);
 
 // 8. Unknown route catcher
 app.all('*', (req, res, next) => {

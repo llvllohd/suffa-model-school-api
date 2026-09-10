@@ -12,7 +12,8 @@ exports.HALL_UPDATABLE_FIELDS = [
   'location',
 ];
 
-exports.ALLOWED_SORT = ['name', 'capacity', 'pricePerHour', 'pricePerDay', 'createdAt', 'rating'];
+const ALLOWED_SORT = ['name', 'capacity', 'pricePerHour', 'pricePerDay', 'createdAt', 'rating'];
+exports.ALLOWED_SORT = ALLOWED_SORT;
 
 exports.buildFilter = (q, isAdmin = false) => {
   const filter = {};

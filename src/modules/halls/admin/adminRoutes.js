@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { createHall, updateHall, deleteHall, getAllHallsAdmin } = require('./adminController');
+const { createHall, updateHall, deleteHall, getAllHallsAdmin, getHallById } = require('./adminController');
 const { addHallValidationSchema, updateHallValidationSchema, hallIdSchema, adminHallQuerySchema } = require('../hallValidator');
 const { validate } = require('../../../middlewares/validateMiddleware');
 const { isAuthenticatedUser, authorizedRole } = require('../../../middlewares/authMiddleware');
@@ -11,6 +11,7 @@ router.use(isAuthenticatedUser, authorizedRole('admin')); // DRY
 
 router.post('/', validate(addHallValidationSchema), asyncHandlerMiddleware(createHall));
 router.get('/', validate(adminHallQuerySchema, 'query'), asyncHandlerMiddleware(getAllHallsAdmin));
+router.get('/:id', validate(hallIdSchema, 'params'), asyncHandlerMiddleware(getHallById));
 router.patch('/:id', validate(hallIdSchema, 'params'), validate(updateHallValidationSchema), asyncHandlerMiddleware(updateHall));
 router.delete('/:id', validate(hallIdSchema, 'params'), asyncHandlerMiddleware(deleteHall));
 

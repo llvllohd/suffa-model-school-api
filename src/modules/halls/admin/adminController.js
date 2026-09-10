@@ -1,4 +1,4 @@
-const { HALL_UPDATABLE_FIELDS } = require('../hallConstants');
+const { HALL_UPDATABLE_FIELDS, buildFilter, buildSearch, buildSort } = require('../hallConstants');
 const Hall = require('../hallModel');
 const ApiError = require('../../../utils/apiError');
 
