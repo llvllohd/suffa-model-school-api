@@ -12,7 +12,8 @@ const ApiError = require('./utils/apiError');
 // Routes imports
 const authRoutes = require('./modules/auth/authRoutes');
 const userRoutes = require('./modules/users/userRoutes');
-const hallRoutes = require('./modules/halls/hallRoutes');
+const publicHallRoutes = require('./modules/halls/public/publicRoutes');
+const adminHallRoutes = require('./modules/halls/admin/adminRoutes');
 
 const app = express();
 
@@ -62,7 +63,8 @@ app.get('/health', (req, res) => {
 // 7. Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/halls', hallRoutes);
+app.use('/api/v1/halls', publicHallRoutes);
+app.use('api/v1/admin/halls', adminHallRoutes);
 
 // 8. Unknown route catcher
 app.all('*', (req, res, next) => {

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { ALLOWED_SORT } = require('./hallConstants');
 
 const phoneCleaner = (value, helpers) => {
   if (!value) return helpers.error('any.required');
@@ -193,7 +194,7 @@ const hallQuerySchema = Joi.object({
       lte: Joi.number().integer().min(1),
       gt: Joi.number().integer().min(1),
       lt: Joi.number().integer().min(1),
-    }).min(1), // <-- prevents {}
+    }).min(1),
   ),
   minPrice: Joi.number().min(0),
   maxPrice: Joi.number()
@@ -204,26 +205,20 @@ const hallQuerySchema = Joi.object({
         'number.greater': 'maxPrice must be greater than minPrice',
       }),
     }),
+  amenities: Joi.string().trim().max(200), // comma separated
   search: Joi.string().trim().max(100),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
-  // Fix sort - allow single or comma separated
   sort: Joi.string()
     .custom((value, helpers) => {
-      const allowed = ['pricePerDay', 'capacity', 'createdAt'];
-      const fields = value.split(',');
-      for (const f of fields) {
+      for (const f of value.split(',')) {
         const clean = f.trim().replace(/^-/, '');
-        if (!allowed.includes(clean)) {
-          return helpers.error('any.invalid');
-        }
+        if (!ALLOWED_SORT.includes(clean)) return helpers.error('any.invalid');
       }
       return value;
     })
     .default('-createdAt')
-    .messages({
-      'any.invalid': 'sort must be one of pricePerDay, capacity, createdAt with optional - prefix',
-    }),
+    .messages({ 'any.invalid': `sort must be one of ${ALLOWED_SORT.join(', ')}` }),
   isActive: Joi.boolean().truthy('true').falsy('false'),
 }).unknown(false);
 

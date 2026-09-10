@@ -1,7 +1,6 @@
-const { HALL_UPDATABLE_FIELDS } = require('./hallConstants');
-const Hall = require('./hallModel');
-const ApiError = require('../../utils/apiError');
-const { buildFilter, buildSearch } = require('../../utils/queryBuilder');
+const { HALL_UPDATABLE_FIELDS } = require('../hallConstants');
+const Hall = require('../hallModel');
+const ApiError = require('../../../utils/apiError');
 
 // Create a new hall
 exports.createHall = async (req, res) => {
@@ -10,24 +9,13 @@ exports.createHall = async (req, res) => {
   res.status(201).json({ success: true, message: 'Hall created successfully.', data: hall });
 };
 
-exports.getAllHalls = async (req, res) => {
-  const q = req.query; // already validated & sanitized
-
-  const filter = buildFilter(q);
+// Get all halls (active + inactive)
+exports.getAllHallsAdmin = async (req, res) => {
+  const q = req.query;
+  const filter = buildFilter(q, true); // true = admin
   const searchQuery = buildSearch(q.search);
-  const finalQuery = searchQuery ? { ...filter, ...searchQuery } : filter;
-
-  const sortObj = {};
-  if (q.sort) {
-    q.sort.split(',').forEach((f) => {
-      const clean = f.trim();
-      if (!clean) return;
-      if (clean.startsWith('-')) sortObj[clean.slice(1)] = -1;
-      else sortObj[clean] = 1;
-    });
-  } else {
-    sortObj.createdAt = -1;
-  }
+  const finalQuery = searchQuery ? { $and: [filter, searchQuery] } : filter;
+  const sortObj = buildSort(q.sort);
 
   const [halls, total] = await Promise.all([
     Hall.find(finalQuery)
@@ -48,13 +36,9 @@ exports.getAllHalls = async (req, res) => {
   });
 };
 
-// Get hall details
 exports.getHallById = async (req, res, next) => {
-  const hall = await Hall.findOne({
-    _id: req.params.id,
-    isActive: true,
-  });
-  if (!hall) return next(new ApiError('Hall not found.', 404));
+  const hall = await Hall.findById(req.params.id);
+  if (!hall) return next(new ApiError('Hall not found', 404));
   res.status(200).json({ success: true, data: hall });
 };
 
