@@ -14,6 +14,7 @@ const authRoutes = require('./modules/auth/authRoutes');
 const userRoutes = require('./modules/users/userRoutes');
 const publicHallRoutes = require('./modules/halls/public/publicRoutes');
 const adminHallRoutes = require('./modules/halls/admin/adminRoutes');
+const uploadRoutes = require('./modules/upload/uploadRoutes');
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/halls', publicHallRoutes);
 app.use('/api/v1/admin/halls', adminHallRoutes);
+app.use('/api/v1/admin/upload', uploadRoutes);
 
 // 8. Unknown route catcher
 app.all('*', (req, res, next) => {

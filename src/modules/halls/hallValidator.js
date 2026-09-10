@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { ALLOWED_SORT } = require('./hallConstants');
+const { MAXIMUM_IMAGE_UPLOADS } = require('../upload/uploadConstants');
 
 const phoneCleaner = (value, helpers) => {
   if (!value) return helpers.error('any.required');
@@ -94,12 +95,17 @@ const addHallValidationSchema = Joi.object({
       'any.only': '{#value} is not a valid amenity',
     }),
 
-  images: Joi.array().items(Joi.string().trim().uri()).min(1).max(10).required().messages({
-    'array.min': 'At least 1 image required',
-    'array.max': 'Maximum 10 images allowed',
-    'any.required': 'At least one hall image is required',
-    'string.uri': 'All images must be valid URLs',
-  }),
+  images: Joi.array()
+    .items(Joi.string().trim().uri())
+    .min(1)
+    .max(MAXIMUM_IMAGE_UPLOADS)
+    .required()
+    .messages({
+      'array.min': 'At least 1 image required',
+      'array.max': `Maximum ${MAXIMUM_IMAGE_UPLOADS} images allowed`,
+      'any.required': 'At least one hall image is required',
+      'string.uri': 'All images must be valid URLs',
+    }),
 
   description: Joi.string().trim().max(1000).allow('', null).messages({
     'string.max': 'Description cannot exceed 1000 characters',

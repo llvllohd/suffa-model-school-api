@@ -1,0 +1,1 @@
+exports.MAXIMUM_IMAGE_UPLOADS = 10;
