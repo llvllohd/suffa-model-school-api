@@ -2,15 +2,15 @@ const Joi = require('joi');
 
 exports.registerSchema = Joi.object({
   name: Joi.string().trim().min(2).max(50).required().messages({
-    'any.required': 'Please enter your name',
-    'string.empty': 'Please enter your name',
-    'string.min': 'Name should have atleast 2 characters',
+    'any.required': 'Name is required',
+    'string.empty': 'Name is required',
+    'string.min': 'Name must be atleast 2 characters',
     'string.max': 'Name cannot exceed 50 characters',
   }),
 
   email: Joi.string().trim().lowercase().email().required().messages({
-    'any.required': 'Please enter your email',
-    'string.empty': 'Please enter your email',
+    'any.required': 'Email is required',
+    'string.empty': 'Email is required',
     'string.email': 'Please enter a valid email',
   }),
 
@@ -36,7 +36,7 @@ exports.registerSchema = Joi.object({
   password: Joi.string().min(8).max(128).required().messages({
     'any.required': 'Please enter your password',
     'string.empty': 'Please enter your password',
-    'string.min': 'Password should have atleast 8 characters',
+    'string.min': 'Password must be at least 8 characters',
     'string.max': 'Password must be less than 128 characters',
   }),
 
@@ -90,6 +90,25 @@ exports.resetPasswordSchema = Joi.object({
   confirmPassword: Joi.string().required().valid(Joi.ref('password')).messages({
     'any.required': 'Passwords do not match',
     'string.empty': 'Passwords do not match',
+    'any.only': 'Passwords do not match',
+  }),
+});
+
+exports.updatePasswordSchema = Joi.object({
+  oldPassword: Joi.string().required().messages({
+    'any.required': 'Old password is required',
+    'string.empty': 'Old password is required',
+  }),
+  newPassword: Joi.string().min(8).max(128).required().disallow(Joi.ref('oldPassword')).messages({
+    'any.required': 'New password is required',
+    'string.empty': 'New password is required',
+    'string.min': 'Password should have at least 8 characters',
+    'string.max': 'Password must be less than 128 characters',
+    'any.invalid': 'New password cannot be same as old password',
+  }),
+  confirmPassword: Joi.string().required().valid(Joi.ref('newPassword')).messages({
+    'any.required': 'Confirm password is required',
+    'string.empty': 'Confirm password is required',
     'any.only': 'Passwords do not match',
   }),
 });

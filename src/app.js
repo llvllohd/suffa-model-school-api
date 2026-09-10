@@ -10,10 +10,14 @@ const errorHandler = require('./middlewares/errorHandler');
 const ApiError = require('./utils/ApiError');
 
 // Routes imports
-const authRoute = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
+const authRoutes = require('./modules/auth/authRoutes');
+const userRoutes = require('./modules/users/userRoutes');
+const hallRoutes = require('./modules/halls/hallRoutes');
 
 const app = express();
+
+app.set('query parser', 'extended');
+app.set('trust proxy', 1);
 
 // 1. Logger - FIRST, to log all requests with requestId
 app.use(httpLogger);
@@ -56,8 +60,9 @@ app.get('/health', (req, res) => {
 });
 
 // 7. Routes
-app.use('/api/v1/auth', authRoute);
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/halls', hallRoutes);
 
 // 8. Unknown route catcher
 app.all('*', (req, res, next) => {

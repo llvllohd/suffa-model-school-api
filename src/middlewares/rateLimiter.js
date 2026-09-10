@@ -30,3 +30,9 @@ exports.refreshLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+exports.hallSearchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 100, // 100 requests per 15min for search
+  message: 'Too many search requests, try again later',
+});

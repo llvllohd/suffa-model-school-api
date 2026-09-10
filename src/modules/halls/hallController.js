@@ -1,0 +1,84 @@
+const { HALL_UPDATABLE_FIELDS } = require('../../constants/hallFields');
+const catchAsyncErrors = require('../../middlewares/catchAsyncErrors');
+const Hall = require('./hallModel');
+const ApiError = require('../../utils/ApiError');
+const { buildFilter, buildSearch } = require('../../utils/queryBuilder');
+
+// Create a new hall
+exports.createHall = catchAsyncErrors(async (req, res) => {
+  // req.body is already validated & cleaned by middleware
+  const hall = await Hall.create(req.body);
+  res.status(201).json({ success: true, message: 'Hall created successfully.', data: hall });
+});
+
+exports.getAllHalls = catchAsyncErrors(async (req, res) => {
+  const q = req.query; // already validated & sanitized
+
+  const filter = buildFilter(q);
+  const searchQuery = buildSearch(q.search);
+  const finalQuery = searchQuery ? { ...filter, ...searchQuery } : filter;
+
+  const sortObj = {};
+  if (q.sort) {
+    q.sort.split(',').forEach((f) => {
+      const clean = f.trim();
+      if (!clean) return;
+      if (clean.startsWith('-')) sortObj[clean.slice(1)] = -1;
+      else sortObj[clean] = 1;
+    });
+  } else {
+    sortObj.createdAt = -1;
+  }
+
+  const [halls, total] = await Promise.all([
+    Hall.find(finalQuery)
+      .sort(sortObj)
+      .skip((q.page - 1) * q.limit)
+      .limit(q.limit)
+      .lean(),
+    Hall.countDocuments(finalQuery),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    total,
+    page: q.page,
+    pages: Math.ceil(total / q.limit),
+    limit: q.limit,
+    data: halls,
+  });
+});
+
+// Get hall details
+exports.getHallById = catchAsyncErrors(async (req, res, next) => {
+  const hall = await Hall.findOne({
+    _id: req.params.id,
+    isActive: true,
+  });
+  if (!hall) return next(new ApiError('Hall not found.', 404));
+  res.status(200).json({ success: true, data: hall });
+});
+
+// Update hall details
+exports.updateHall = catchAsyncErrors(async (req, res, next) => {
+  const body = {};
+  HALL_UPDATABLE_FIELDS.forEach((f) => {
+    if (req.body[f] !== undefined) body[f] = req.body[f];
+  });
+  const hall = await Hall.findById(req.params.id);
+  if (!hall) return next(new ApiError('Hall not found', 404));
+  if (body.location) {
+    Object.entries(body.location).forEach(([k, v]) => (hall.location[k] = v === '' ? null : v));
+    delete body.location;
+  }
+  Object.assign(hall, body);
+  await hall.save(); // triggers your pre('validate') price check
+  res.status(200).json({ success: true, message: 'Hall updated successfully.', data: hall });
+});
+
+// Delete (deactivate) a hall
+exports.deleteHall = catchAsyncErrors(async (req, res, next) => {
+  const hall = await Hall.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  if (!hall) return next(new ApiError('Hall not found', 404));
+  res.status(200).json({ success: true, message: 'Hall deleted successfully.' });
+});

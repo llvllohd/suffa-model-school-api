@@ -1,7 +1,7 @@
-const catchAsyncErrors = require('../middlewares/catchAsyncErrors');
-const User = require('../models/User');
-const ApiError = require('../utils/ApiError');
-const sendToken = require('../utils/sendToken');
+const catchAsyncErrors = require('../../middlewares/catchAsyncErrors');
+const User = require('./userModel');
+const ApiError = require('../../utils/ApiError');
+const sendToken = require('../../utils/sendToken');
 
 exports.getMe = catchAsyncErrors(async (req, res, next) => {
   res.status(200).json({
