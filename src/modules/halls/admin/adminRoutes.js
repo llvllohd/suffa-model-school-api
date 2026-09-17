@@ -7,7 +7,7 @@ const { validate } = require('../../../middlewares/validateMiddleware');
 const { isAuthenticatedUser, authorizedRole } = require('../../../middlewares/authMiddleware');
 const asyncHandlerMiddleware = require('../../../middlewares/asyncHandlerMiddleware');
 
-router.use(isAuthenticatedUser, authorizedRole('admin')); // DRY
+router.use(isAuthenticatedUser, authorizedRole('hall_owner', 'super_admin')); // DRY
 
 router.post('/', validate(addHallValidationSchema), asyncHandlerMiddleware(createHall));
 router.get('/', validate(adminHallQuerySchema, 'query'), asyncHandlerMiddleware(getAllHallsAdmin));

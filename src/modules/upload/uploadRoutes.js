@@ -6,7 +6,7 @@ const { isAuthenticatedUser, authorizedRole } = require('../../middlewares/authM
 const { validate } = require('../../middlewares/validateMiddleware');
 const { deleteImageValidationSchema } = require('./uploadValidator');
 
-router.use(isAuthenticatedUser, authorizedRole('admin'));
+router.use(isAuthenticatedUser, authorizedRole('hall_owner', 'super_admin'));
 
 router.post('/images', uploadImages);
 router.delete('/images', validate(deleteImageValidationSchema, 'query'), deleteImage);

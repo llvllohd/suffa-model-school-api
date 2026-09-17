@@ -64,11 +64,6 @@ exports.forgotPasswordSchema = Joi.object({
     'string.empty': 'Invalid email',
     'string.email': 'Invalid email',
   }),
-  url: Joi.string().uri().required().messages({
-    'any.required': 'Invalid URL',
-    'string.empty': 'Invalid URL',
-    'string.uri': 'Invalid URL',
-  }),
 });
 
 exports.resetPasswordParamsSchema = Joi.object({
@@ -87,7 +82,7 @@ exports.resetPasswordSchema = Joi.object({
     'string.min': 'Password should have at least 8 characters',
     'string.max': 'Password must be less than 128 characters',
   }),
-  confirmPassword: Joi.string().required().valid(Joi.ref('password')).messages({
+  confirmPassword: Joi.string().required().valid(Joi.ref('password')).strip().messages({
     'any.required': 'Passwords do not match',
     'string.empty': 'Passwords do not match',
     'any.only': 'Passwords do not match',
@@ -106,7 +101,7 @@ exports.updatePasswordSchema = Joi.object({
     'string.max': 'Password must be less than 128 characters',
     'any.invalid': 'New password cannot be same as old password',
   }),
-  confirmPassword: Joi.string().required().valid(Joi.ref('newPassword')).messages({
+  confirmPassword: Joi.string().required().valid(Joi.ref('newPassword')).strip().messages({
     'any.required': 'Confirm password is required',
     'string.empty': 'Confirm password is required',
     'any.only': 'Passwords do not match',

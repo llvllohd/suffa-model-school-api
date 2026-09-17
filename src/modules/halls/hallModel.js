@@ -1,14 +1,25 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
+const slugify = require('slugify');
 
 const hallSchema = new mongoose.Schema(
   {
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
     name: {
       type: String,
       required: [true, 'Hall name is required'],
       trim: true,
       minlength: [3, 'Hall name must be at least 3 characters'],
       maxlength: [100, 'Hall name cannot exceed 100 characters'],
+    },
+    slug: {
+      type: String,
+      unique: true,
+      lowercase: true,
     },
     location: {
       address: {
@@ -86,12 +97,13 @@ const hallSchema = new mongoose.Schema(
       maxlength: [50, 'Name cannot exceed 50 characters'],
     },
     amenities: {
-      type: [String],
+      type: [
+        {
+          type: String,
+          enum: ['AC', 'Parking', 'Kitchen', 'Dining Hall', 'Bride Room', 'Sound System', 'Decoration', 'Generator', 'CCTV', 'Lift'],
+        },
+      ],
       default: [],
-      enum: {
-        values: ['AC', 'Parking', 'Kitchen', 'Dining Hall', 'Bride Room', 'Sound System', 'Decoration', 'Generator', 'CCTV', 'Lift'],
-        message: '{VALUE} is not a valid amenity',
-      },
     },
     images: {
       type: [String],
@@ -119,14 +131,6 @@ const hallSchema = new mongoose.Schema(
     blockedDates: {
       type: [Date],
       default: [],
-      validate: {
-        validator: function (v) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          return v.every((d) => new Date(d).setHours(0, 0, 0, 0) >= today);
-        },
-        message: 'Blocked date cannot be in the past',
-      },
     },
     isActive: {
       type: Boolean,
@@ -136,13 +140,27 @@ const hallSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-hallSchema.index({ 'location.city': 1, isActive: 1 });
-hallSchema.index({ pricePerDay: 1 });
 hallSchema.index({ name: 1, 'location.city': 1 }, { unique: true });
+hallSchema.index({ pricePerDay: 1 });
+hallSchema.index({ owner: 1 });
+hallSchema.index({ 'location.city': 1, isActive: 1 });
 
-hallSchema.pre('validate', function (next) {
+hallSchema.pre('save', function (next) {
+  // price check
   if (this.pricePerDay && this.pricePerHour && this.pricePerDay <= this.pricePerHour) {
-    this.invalidate('pricePerDay', 'Per day price must be greater than per hour price', this.pricePerDay);
+    return next(new Error('Per day price must be greater than per hour price'));
+  }
+  // blockedDates check (only when modified)
+  if (this.isModified('blockedDates')) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hasPast = this.blockedDates.some((d) => new Date(d).setHours(0, 0, 0, 0) < today);
+    if (hasPast) return next(new Error('Blocked date cannot be in past'));
+  }
+  // create slug
+  if (this.isModified('name') || this.isModified('location.city') || !this.slug) {
+    const base = `${this.name} ${this.location.city}`;
+    this.slug = slugify(base, { lower: true, strict: true });
   }
   next();
 });

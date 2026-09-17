@@ -36,13 +36,18 @@ exports.loginUser = async (req, res, next) => {
 
 // Forgot Password
 exports.forgotPassword = async (req, res, next) => {
-  const { email, url } = req.body;
+  const { email } = req.body;
   const user = await User.findOne({ email });
-  if (!user) return next(new ApiError('Invalid email', 404));
+  if (!user) {
+    return res.status(200).json({
+      status: true,
+      message: `An email has been sent successfully.`,
+    });
+  }
   // Get Reset Password Token
   const resetToken = user.generateResetPasswordToken();
   await user.save({ validateBeforeSave: false });
-  const resetPasswordUrl = `${url.replace(/\/$/, '')}/${resetToken}`;
+  const resetPasswordUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
   try {
     await sendEmail({
       mail: user.email,

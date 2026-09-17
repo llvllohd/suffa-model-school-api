@@ -7,9 +7,8 @@ exports.HALL_UPDATABLE_FIELDS = [
   'contactPersonName',
   'amenities',
   'description',
-  'blockedDates',
-  'isActive',
   'location',
+  'images',
 ];
 
 const ALLOWED_SORT = ['name', 'capacity', 'pricePerHour', 'pricePerDay', 'createdAt', 'rating'];
