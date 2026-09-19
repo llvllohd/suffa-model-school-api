@@ -16,7 +16,7 @@ exports.createHall = async (req, res) => {
 exports.getAllHallsAdmin = async (req, res) => {
   const q = req.query;
   const page = parseInt(q.page) || 1;
-  const limit = parseInt(q.limit) || 10;
+  const limit = Math.min(parseInt(q.limit) || 10, 50);
 
   const filter = buildFilter(q, true); // true = admin
   const searchQuery = buildSearch(q.search);
@@ -48,11 +48,11 @@ exports.getAllHallsAdmin = async (req, res) => {
   });
 };
 
+// Get hall detail
 exports.getHallById = async (req, res, next) => {
   const hall = await Hall.findById(req.params.id);
   if (!hall) return next(new ApiError('Hall not found', 404));
 
-  // hall_owner can only see his own hall
   if (req?.user?.role !== 'super_admin' && hall.owner.toString() !== req?.user?._id.toString()) {
     return next(new ApiError('Hall not found', 403));
   }
@@ -90,16 +90,18 @@ exports.updateHall = async (req, res, next) => {
   res.status(200).json({ success: true, message: 'Hall updated successfully.', data: hall });
 };
 
-// Delete (deactivate) a hall
+// Delete (deactivate) a hall - Only for super admin
 exports.deleteHall = async (req, res, next) => {
-  const hall = await Hall.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
-  if (!hall) return next(new ApiError('Hall not found', 404));
-
-  if (req?.user?.role !== 'super_admin' && hall.owner.toString() !== req?.user?._id.toString()) {
+  if (req?.user?.role !== 'super_admin') {
     return next(new ApiError('Hall not found', 403));
   }
 
+  const hall = await Hall.findById(req.params.id);
+  if (!hall) return next(new ApiError('Hall not found', 404));
+
   hall.isActive = false;
+  hall.isVerified = false;
+
   await hall.save();
 
   res.status(200).json({ success: true, message: 'Hall deleted successfully.' });

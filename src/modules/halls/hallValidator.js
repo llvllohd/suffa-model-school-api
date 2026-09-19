@@ -91,31 +91,45 @@ const addHallValidationSchema = Joi.object({
 
   amenities: Joi.array()
     .items(Joi.string().valid('AC', 'Parking', 'Kitchen', 'Dining Hall', 'Bride Room', 'Sound System', 'Decoration', 'Generator', 'CCTV', 'Lift'))
+    .default([])
     .messages({
       'any.only': '{#value} is not a valid amenity',
     }),
 
   images: Joi.array()
-    .items(Joi.string().trim().uri())
+    .items(
+      Joi.object({
+        public_id: Joi.string().trim().required().messages({
+          'any.required': 'public_id is required',
+          'string.empty': 'public_id cannot be empty',
+        }),
+        url: Joi.string().uri().required().messages({
+          'any.required': 'Image URL is required',
+          'string.uri': 'Each image must be a valid URL',
+        }),
+      }),
+    )
     .min(1)
-    .max(MAXIMUM_IMAGE_UPLOADS)
+    .max(10)
     .required()
     .messages({
-      'array.min': 'At least 1 image required',
+      'array.min': 'At least 1 image is required',
       'array.max': `Maximum ${MAXIMUM_IMAGE_UPLOADS} images allowed`,
-      'any.required': 'At least one hall image is required',
-      'string.uri': 'All images must be valid URLs',
     }),
 
   description: Joi.string().trim().max(1000).allow('', null).messages({
     'string.max': 'Description cannot exceed 1000 characters',
   }),
 
-  blockedDates: Joi.array().items(Joi.date().custom(blockedDateValidator)).messages({
+  blockedDates: Joi.array().items(Joi.date().iso().custom(blockedDateValidator)).default([]).messages({
     'date.min': 'Blocked date cannot be in the past',
   }),
 
-  isActive: Joi.boolean(),
+  isActive: Joi.boolean().optional().default(true),
+  isVerified: Joi.forbidden(),
+  isFeatured: Joi.forbidden(),
+  owner: Joi.forbidden(),
+  slug: Joi.forbidden(),
 }).unknown(false);
 
 const updateHallValidationSchema = Joi.object({
@@ -174,15 +188,41 @@ const updateHallValidationSchema = Joi.object({
       'any.only': '{#value} is not a valid amenity',
     }),
 
+  images: Joi.array()
+    .items(
+      Joi.object({
+        public_id: Joi.string().trim().required().messages({
+          'any.required': 'public_id is required',
+          'string.empty': 'public_id cannot be empty',
+        }),
+        url: Joi.string().uri().required().messages({
+          'any.required': 'Image URL is required',
+          'string.uri': 'Each image must be a valid URL',
+        }),
+      }),
+    )
+    .min(1)
+    .max(10)
+    .optional()
+    .messages({
+      'array.min': 'At least 1 image is required',
+      'array.max': `Maximum ${MAXIMUM_IMAGE_UPLOADS} images allowed`,
+    }),
+
   description: Joi.string().trim().max(1000).allow('', null).optional().messages({
     'string.max': 'Description cannot exceed 1000 characters',
   }),
 
-  blockedDates: Joi.array().items(Joi.date().custom(blockedDateValidator)).optional().messages({
+  blockedDates: Joi.array().items(Joi.date().iso().custom(blockedDateValidator)).optional().messages({
     'date.min': 'Blocked date cannot be in the past',
   }),
 
   isActive: Joi.boolean().optional(),
+
+  isVerified: Joi.forbidden(),
+  isFeatured: Joi.forbidden(),
+  owner: Joi.forbidden(),
+  slug: Joi.forbidden(),
 })
   .min(1)
   .unknown(false)

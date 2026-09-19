@@ -1,6 +1,7 @@
 const asyncHandlerMiddleware = require('../../middlewares/asyncHandlerMiddleware');
 const ApiError = require('../../utils/apiError');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../../utils/cloudinary');
+const hallModel = require('../halls/hallModel');
 const { MAXIMUM_IMAGE_UPLOADS } = require('./uploadConstants');
 
 // Upload image(s)
@@ -21,7 +22,9 @@ exports.uploadImages = asyncHandlerMiddleware(async (req, res, next) => {
 
 // DELETE IMAGE
 exports.deleteImage = asyncHandlerMiddleware(async (req, res, next) => {
-  const { public_id } = req.query;
+  const { public_id, hallId } = req.query;
+
+  // Delete from Cloudinary
   const result = await deleteFromCloudinary(public_id);
 
   if (result.result === 'not found') {
@@ -30,6 +33,13 @@ exports.deleteImage = asyncHandlerMiddleware(async (req, res, next) => {
 
   if (result.result !== 'ok') {
     return next(new ApiError('Failed to delete image from Cloudinary', 500));
+  }
+
+  // If hallId provided, pull from hall document too
+  if (hallId) {
+    await hallModel.findByIdAndUpdate(hallId, {
+      $pull: { images: { public_id: public_id } },
+    });
   }
 
   res.status(200).json({

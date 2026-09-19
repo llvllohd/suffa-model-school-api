@@ -2,6 +2,20 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const slugify = require('slugify');
 
+const imageSchema = new mongoose.Schema(
+  {
+    public_id: { type: String, required: true, trim: true },
+    url: {
+      type: String,
+      required: true,
+      validate: {
+        validator: (v) => validator.isURL(v),
+        message: 'Image URL must be valid',
+      },
+    },
+  },
+  { _id: false },
+);
 const hallSchema = new mongoose.Schema(
   {
     owner: {
@@ -106,7 +120,7 @@ const hallSchema = new mongoose.Schema(
       default: [],
     },
     images: {
-      type: [String],
+      type: [imageSchema],
       required: [true, 'At least one hall image is required'],
       validate: [
         {
@@ -118,8 +132,8 @@ const hallSchema = new mongoose.Schema(
           message: 'Maximum 10 images allowed',
         },
         {
-          validator: (v) => v.every((url) => validator.isURL(url)),
-          message: 'All images must be valid URLs',
+          validator: (v) => v.every((img) => img.url && validator.isURL(img.url) && img.public_id),
+          message: 'All images must have valid URL and public_id',
         },
       ],
     },
@@ -132,10 +146,9 @@ const hallSchema = new mongoose.Schema(
       type: [Date],
       default: [],
     },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+    isActive: { type: Boolean, default: true },
+    isVerified: { type: Boolean, default: false },
+    isFeatured: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

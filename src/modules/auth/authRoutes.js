@@ -19,7 +19,7 @@ router.post(
   validate(resetPasswordSchema, 'body'),
   asyncHandlerMiddleware(resetPassword),
 );
-router.get('/refresh-token', refreshLimiter, asyncHandlerMiddleware(refreshToken));
-router.get('/logout', isAuthenticatedUser, asyncHandlerMiddleware(logoutUser));
+router.post('/refresh-token', refreshLimiter, asyncHandlerMiddleware(refreshToken));
+router.post('/logout', isAuthenticatedUser, asyncHandlerMiddleware(logoutUser));
 
 module.exports = router;

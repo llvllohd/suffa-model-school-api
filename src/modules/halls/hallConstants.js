@@ -9,6 +9,7 @@ exports.HALL_UPDATABLE_FIELDS = [
   'description',
   'location',
   'images',
+  'isActive',
 ];
 
 const ALLOWED_SORT = ['name', 'capacity', 'pricePerHour', 'pricePerDay', 'createdAt', 'rating'];
@@ -17,8 +18,15 @@ exports.ALLOWED_SORT = ALLOWED_SORT;
 exports.buildFilter = (q, isAdmin = false) => {
   const filter = {};
 
-  if (!isAdmin) filter.isActive = true;
-  else if (q.isActive !== undefined) filter.isActive = q.isActive === 'true';
+  if (!isAdmin) {
+    filter.isActive = true;
+    filter.isVerified = true;
+  }
+
+  if (isAdmin) {
+    if (q.isActive !== undefined) filter.isActive = q.isActive === 'true';
+    if (q.isVerified !== undefined) filter.isVerified = q.isVerified === 'true';
+  }
 
   if (q.city) filter['location.city'] = { $regex: q.city, $options: 'i' };
 

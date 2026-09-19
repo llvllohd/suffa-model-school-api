@@ -13,6 +13,6 @@ router.post('/', validate(addHallValidationSchema), asyncHandlerMiddleware(creat
 router.get('/', validate(adminHallQuerySchema, 'query'), asyncHandlerMiddleware(getAllHallsAdmin));
 router.get('/:id', validate(hallIdSchema, 'params'), asyncHandlerMiddleware(getHallById));
 router.patch('/:id', validate(hallIdSchema, 'params'), validate(updateHallValidationSchema), asyncHandlerMiddleware(updateHall));
-router.delete('/:id', validate(hallIdSchema, 'params'), asyncHandlerMiddleware(deleteHall));
+router.delete('/:id', authorizedRole('super_admin'), validate(hallIdSchema, 'params'), asyncHandlerMiddleware(deleteHall));
 
 module.exports = router;

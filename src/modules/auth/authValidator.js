@@ -8,7 +8,7 @@ exports.registerSchema = Joi.object({
     'string.max': 'Name cannot exceed 50 characters',
   }),
 
-  email: Joi.string().trim().lowercase().email().required().messages({
+  email: Joi.string().trim().lowercase().email().max(254).required().messages({
     'any.required': 'Email is required',
     'string.empty': 'Email is required',
     'string.email': 'Please enter a valid email',
@@ -19,7 +19,7 @@ exports.registerSchema = Joi.object({
     .allow('', null)
     .optional()
     .custom((value, helpers) => {
-      if (!value) return value;
+      if (!value) return undefined;
       const cleaned = value
         .replace(/[\s\-+]/g, '')
         .replace(/^91/, '')
