@@ -6,7 +6,7 @@ const ApiError = require('../../../utils/apiError');
 exports.createHall = async (req, res) => {
   const data = {
     ...req.body,
-    owner: req.user._id, // or req.user.id
+    owner: req.user._id,
   };
   const hall = await Hall.create(data);
   res.status(201).json({ success: true, message: 'Hall created successfully.', data: hall });
@@ -18,10 +18,9 @@ exports.getAllHallsAdmin = async (req, res) => {
   const page = parseInt(q.page) || 1;
   const limit = Math.min(parseInt(q.limit) || 10, 50);
 
-  const filter = buildFilter(q, true); // true = admin
+  const filter = buildFilter(q, true);
   const searchQuery = buildSearch(q.search);
 
-  // if hall_owner, show only his halls
   if (req.user.role === 'hall_owner') {
     filter.owner = req.user._id;
   }
@@ -51,10 +50,10 @@ exports.getAllHallsAdmin = async (req, res) => {
 // Get hall detail
 exports.getHallById = async (req, res, next) => {
   const hall = await Hall.findById(req.params.id);
-  if (!hall) return next(new ApiError('Hall not found', 404));
+  if (!hall) return next(new ApiError('Hall not found.', 404));
 
-  if (req?.user?.role !== 'super_admin' && hall.owner.toString() !== req?.user?._id.toString()) {
-    return next(new ApiError('Hall not found', 403));
+  if (req.user.role !== 'super_admin' && hall.owner.toString() !== req.user._id.toString()) {
+    return next(new ApiError('You are not authorized to view this hall.', 403));
   }
 
   res.status(200).json({ success: true, data: hall });
@@ -68,11 +67,10 @@ exports.updateHall = async (req, res, next) => {
   });
 
   const hall = await Hall.findById(req.params.id);
-  if (!hall) return next(new ApiError('Hall not found', 404));
+  if (!hall) return next(new ApiError('Hall not found.', 404));
 
-  // Only owner who created the hall or super_admin can update
-  if (req?.user?.role !== 'super_admin' && hall.owner.toString() !== req?.user?._id.toString()) {
-    return next(new ApiError('Hall not found', 403));
+  if (req.user.role !== 'super_admin' && hall.owner.toString() !== req.user._id.toString()) {
+    return next(new ApiError('You are not authorized to update this hall.', 403));
   }
 
   if (body.location) {
@@ -86,23 +84,51 @@ exports.updateHall = async (req, res, next) => {
   }
 
   Object.assign(hall, body);
-  await hall.save(); // triggers your pre('validate') price + slug logic
+  await hall.save();
   res.status(200).json({ success: true, message: 'Hall updated successfully.', data: hall });
 };
 
-// Delete (deactivate) a hall - Only for super admin
+// Delete (soft delete)
 exports.deleteHall = async (req, res, next) => {
-  if (req?.user?.role !== 'super_admin') {
-    return next(new ApiError('Hall not found', 403));
+  const hall = await Hall.findById(req.params.id);
+  if (!hall) return next(new ApiError('Hall not found.', 404));
+
+  if (req.user.role !== 'super_admin' && hall.owner.toString() !== req.user._id.toString()) {
+    return next(new ApiError('You are not authorized to delete this hall.', 403));
+  }
+
+  await hall.softDelete();
+  res.status(200).json({ success: true, message: 'Hall deleted successfully.' });
+};
+
+// Restore - Only super_admin
+exports.restoreHall = async (req, res, next) => {
+  if (req.user.role !== 'super_admin') {
+    return next(new ApiError('You are not authorized to restore halls.', 403));
+  }
+
+  const hall = await Hall.findById(req.params.id).setOptions({ withDeleted: true });
+  if (!hall) return next(new ApiError('Hall not found.', 404));
+
+  await hall.restore();
+  res.status(200).json({ success: true, message: 'Hall restored successfully.', data: hall });
+};
+
+// Verify / Unverify - Only super_admin
+exports.verifyHall = async (req, res, next) => {
+  if (req.user.role !== 'super_admin') {
+    return next(new ApiError('You are not authorized to verify halls.', 403));
   }
 
   const hall = await Hall.findById(req.params.id);
-  if (!hall) return next(new ApiError('Hall not found', 404));
+  if (!hall) return next(new ApiError('Hall not found.', 404));
 
-  hall.isActive = false;
-  hall.isVerified = false;
-
+  hall.isVerified = !hall.isVerified;
   await hall.save();
 
-  res.status(200).json({ success: true, message: 'Hall deleted successfully.' });
+  res.status(200).json({
+    success: true,
+    message: `Hall ${hall.isVerified ? 'verified' : 'unverified'} successfully.`,
+    data: hall,
+  });
 };

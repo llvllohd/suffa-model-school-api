@@ -16,6 +16,7 @@ const imageSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
 const hallSchema = new mongoose.Schema(
   {
     owner: {
@@ -32,8 +33,8 @@ const hallSchema = new mongoose.Schema(
     },
     slug: {
       type: String,
-      unique: true,
       lowercase: true,
+      // removed unique:true - handled by partial index below
     },
     location: {
       address: {
@@ -149,33 +150,62 @@ const hallSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
-hallSchema.index({ name: 1, 'location.city': 1 }, { unique: true });
-hallSchema.index({ pricePerDay: 1 });
-hallSchema.index({ owner: 1 });
-hallSchema.index({ 'location.city': 1, isActive: 1 });
+// --- INDEXES (fixed, no duplicate) ---
+hallSchema.index({ name: 1, 'location.city': 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
+hallSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
+hallSchema.index({ owner: 1, isDeleted: 1 });
+hallSchema.index({ 'location.city': 1, isActive: 1, isDeleted: 1 });
+hallSchema.index({ pricePerDay: 1, isDeleted: 1 });
+hallSchema.index({ isDeleted: 1, deletedAt: 1 });
+
+// --- MIDDLEWARES ---
+function hideDeleted(next) {
+  if (this.getOptions().withDeleted) return next();
+  this.where({ isDeleted: { $ne: true } });
+  next();
+}
+hallSchema.pre('find', hideDeleted);
+hallSchema.pre('findOne', hideDeleted);
+hallSchema.pre('findOneAndUpdate', hideDeleted);
+hallSchema.pre('countDocuments', hideDeleted);
+hallSchema.pre('count', hideDeleted);
 
 hallSchema.pre('save', function (next) {
-  // price check
   if (this.pricePerDay && this.pricePerHour && this.pricePerDay <= this.pricePerHour) {
     return next(new Error('Per day price must be greater than per hour price'));
   }
-  // blockedDates check (only when modified)
   if (this.isModified('blockedDates')) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const hasPast = this.blockedDates.some((d) => new Date(d).setHours(0, 0, 0, 0) < today);
     if (hasPast) return next(new Error('Blocked date cannot be in past'));
   }
-  // create slug
   if (this.isModified('name') || this.isModified('location.city') || !this.slug) {
     const base = `${this.name} ${this.location.city}`;
     this.slug = slugify(base, { lower: true, strict: true });
   }
   next();
 });
+
+// --- METHODS ---
+hallSchema.methods.softDelete = function () {
+  if (this.isDeleted) return Promise.resolve(this);
+  this.isDeleted = true;
+  this.deletedAt = new Date();
+  this.isActive = false;
+  return this.save();
+};
+
+hallSchema.methods.restore = function () {
+  this.isDeleted = false;
+  this.deletedAt = null;
+  return this.save();
+};
 
 module.exports = mongoose.model('Hall', hallSchema);
