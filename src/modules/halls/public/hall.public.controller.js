@@ -1,6 +1,6 @@
-const Hall = require('../hallModel');
+const Hall = require('../hall.model');
 const ApiError = require('../../../utils/apiError');
-const { buildFilter, buildSearch, buildSort } = require('../hallConstants');
+const { buildFilter, buildSearch, buildSort } = require('../hall.constants');
 const { default: mongoose } = require('mongoose');
 
 // Get all halls (only active)

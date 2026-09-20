@@ -1,5 +1,5 @@
-const ApiError = require('../../utils/apiError');
-const Booking = require('./bookingModel');
+const ApiError = require('../../../utils/apiError');
+const Booking = require('../booking.model');
 
 const getAvailability = async (req, res, next) => {
   const { hallId } = req.params;

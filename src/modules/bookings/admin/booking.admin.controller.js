@@ -1,5 +1,6 @@
 const ApiError = require('../../../utils/apiError');
 const Booking = require('../booking.model');
+const Hall = require('../../halls/hall.model');
 
 const checkOverlappingBooking = async (Booking, { hallId, sDate, eDate, excludeId = null }) => {
   const query = {
@@ -30,7 +31,7 @@ const createBooking = async (req, res, next) => {
 
   const hallFilter = { _id: hall };
   if (req.user.role !== 'super_admin') {
-    hallFilter.createdBy = req.user._id;
+    hallFilter.owner = req.user._id;
   }
 
   const hallDoc = await Hall.findOne(hallFilter);
@@ -63,54 +64,52 @@ const createBooking = async (req, res, next) => {
 const updateBooking = async (req, res, next) => {
   const { id } = req.params;
 
-  const filter = { _id: id };
-  if (req.user.role !== 'super_admin') {
-    filter.createdBy = req.user._id;
-  }
-  const existing = await Booking.findOne(filter);
+  const existing = await Booking.findById(id);
   if (!existing) return next(new ApiError('Booking not found', 404));
+
+  if (req.user.role !== 'super_admin' && existing.owner.toString() !== req.user._id.toString()) {
+    return next(new ApiError('Not authorized to update this booking', 403));
+  }
 
   const { hall, startDate, endDate, type } = req.body;
   const hallToCheck = hall || existing.hall;
+  let newHallOwner = null;
 
   if (hall && hall.toString() !== existing.hall.toString()) {
-    const newHallFilter = { _id: hall };
-    if (req.user.role !== 'super_admin') {
-      newHallFilter.createdBy = req.user._id;
-    }
-    const newHallDoc = await Hall.findOne(newHallFilter);
-    if (!newHallDoc) return next(new ApiError('Hall not found or you are not authorized', 404));
+    const hallFilter = { _id: hall };
+    if (req.user.role !== 'super_admin') hallFilter.owner = req.user._id;
+
+    const newHallDoc = await Hall.findOne(hallFilter);
+    if (!newHallDoc) return next(new ApiError('New hall not found or not owned by you', 404));
+    newHallOwner = newHallDoc.owner; // need to update owner too
   }
 
   const sDate = startDate ? toMidnight(startDate) : existing.startDate;
   const eDate = endDate !== undefined ? (endDate ? toMidnight(endDate) : sDate) : existing.endDate;
 
-  if (hall || startDate || endDate) await checkOverlappingBooking(Booking, { hallId: hallToCheck, sDate, eDate, excludeId: id });
+  if (hall || startDate || endDate) {
+    await checkOverlappingBooking(Booking, { hallId: hallToCheck, sDate, eDate, excludeId: id });
+  }
 
   const payload = { ...req.body };
   if (startDate) payload.startDate = sDate;
   if (endDate !== undefined) payload.endDate = eDate;
+  if (newHallOwner) payload.owner = newHallOwner;
 
   const finalType = type || existing.type;
-  let booking;
 
-  if (finalType === 'blocked' && type === 'blocked') {
+  let booking;
+  if (finalType === 'blocked') {
     delete payload.customerName;
     delete payload.customerPhone;
     delete payload.advance;
-    booking = await Booking.findOneAndUpdate(
-      filter,
-      {
-        $set: payload,
-        $unset: { customerName: 1, customerPhone: 1, advance: 1 },
-      },
+    booking = await Booking.findByIdAndUpdate(
+      id,
+      { $set: payload, $unset: { customerName: 1, customerPhone: 1, advance: 1 } },
       { new: true, runValidators: true },
     );
   } else {
-    booking = await Booking.findOneAndUpdate(filter, payload, {
-      new: true,
-      runValidators: true,
-    });
+    booking = await Booking.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
   }
 
   res.status(200).json({
@@ -124,11 +123,10 @@ const deleteBooking = async (req, res, next) => {
   const { id } = req.params;
   const filter = { _id: id };
   if (req.user.role !== 'super_admin') {
-    filter.createdBy = req.user._id;
+    filter.owner = req.user._id;
   }
   const deleted = await Booking.findOneAndDelete(filter);
   if (!deleted) {
-    // Either not found OR not owner -> same 404 (don't leak existence)
     return next(new ApiError('Booking not found', 404));
   }
   res.status(200).json({
@@ -141,7 +139,7 @@ const getAllBookings = async (req, res) => {
   const filter = {};
   if (req.query.hall) filter.hall = req.query.hall;
   if (req.user.role !== 'super_admin') {
-    filter.createdBy = req.user._id;
+    filter.owner = req.user._id;
   }
   const bookings = await Booking.find(filter).populate('hall', 'name').sort({ startDate: -1 }).lean();
   res.status(200).json({
@@ -157,7 +155,7 @@ const getAvailabilityAdmin = async (req, res, next) => {
 
   const hallFilter = { _id: hallId };
   if (req.user.role !== 'super_admin') {
-    hallFilter.createdBy = req.user._id;
+    hallFilter.owner = req.user._id;
   }
   const hallDoc = await Hall.findOne(hallFilter);
   if (!hallDoc) return next(new ApiError('Hall not found', 404));

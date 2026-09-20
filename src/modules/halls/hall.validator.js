@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const { ALLOWED_SORT } = require('./hallConstants');
+const { ALLOWED_SORT } = require('./hall.constants');
 const { MAXIMUM_IMAGE_UPLOADS } = require('../upload/uploadConstants');
 
 const phoneCleaner = (value, helpers) => {

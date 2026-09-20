@@ -1,13 +1,21 @@
-const { HALL_UPDATABLE_FIELDS, buildFilter, buildSearch, buildSort } = require('../hallConstants');
-const Hall = require('../hallModel');
+const { HALL_UPDATABLE_FIELDS, buildFilter, buildSearch, buildSort } = require('../hall.constants');
+const Hall = require('../hall.model');
 const ApiError = require('../../../utils/apiError');
 
 // Create a new hall
-exports.createHall = async (req, res) => {
+exports.createHall = async (req, res, next) => {
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  if (isSuperAdmin && !req.body.owner) {
+    return next(new ApiError('Owner is required for creating a hall.', 400));
+  }
+
   const data = {
     ...req.body,
-    owner: req.user._id,
+    owner: isSuperAdmin ? req.body.owner : req.user._id,
+    createdBy: req.user._id,
   };
+
   const hall = await Hall.create(data);
   res.status(201).json({ success: true, message: 'Hall created successfully.', data: hall });
 };
@@ -48,7 +56,7 @@ exports.getAllHallsAdmin = async (req, res) => {
 };
 
 // Get hall detail
-exports.getHallById = async (req, res, next) => {
+exports.getHallByIdAdmin = async (req, res, next) => {
   const hall = await Hall.findById(req.params.id);
   if (!hall) return next(new ApiError('Hall not found.', 404));
 

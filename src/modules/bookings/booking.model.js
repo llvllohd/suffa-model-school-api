@@ -88,7 +88,12 @@ const bookingSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Created by user is required'],
+      required: [true, 'CreatedBy user is required'],
+    },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Owner is required'],
     },
   },
   { timestamps: true },
@@ -97,6 +102,8 @@ const bookingSchema = new mongoose.Schema(
 // --- INDEXES --- (correct now)
 bookingSchema.index({ hall: 1, startDate: 1, endDate: 1 });
 bookingSchema.index({ hall: 1, type: 1 });
+bookingSchema.index({ owner: 1, startDate: -1 });
+bookingSchema.index({ hall: 1, owner: 1 });
 bookingSchema.index({ startDate: 1 });
 bookingSchema.index({ createdBy: 1 });
 

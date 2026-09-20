@@ -22,7 +22,7 @@ const hallSchema = new mongoose.Schema(
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: [true, 'Owner is required'],
     },
     name: {
       type: String,
@@ -147,6 +147,12 @@ const hallSchema = new mongoose.Schema(
       type: [Date],
       default: [],
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'CreatedBy is required'],
+      immutable: true,
+    },
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
@@ -160,6 +166,7 @@ const hallSchema = new mongoose.Schema(
 hallSchema.index({ name: 1, 'location.city': 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 hallSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 hallSchema.index({ owner: 1, isDeleted: 1 });
+hallSchema.index({ createdBy: 1, isDeleted: 1 });
 hallSchema.index({ 'location.city': 1, isActive: 1, isDeleted: 1 });
 hallSchema.index({ pricePerDay: 1, isDeleted: 1 });
 hallSchema.index({ isDeleted: 1, deletedAt: 1 });

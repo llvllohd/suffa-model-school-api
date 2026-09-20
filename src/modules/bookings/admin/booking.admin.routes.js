@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { validate } = require('../../../middlewares/validateMiddleware');
 const { authorizedRole, isAuthenticatedUser } = require('../../../middlewares/authMiddleware');
 const { availabilityQuerySchema, createBookingSchema, updateBookingSchema, hallQuerySchema, bookingIdSchema, hallIdSchema } = require('../booking.validator');
-const { getAvailabilityAdmin, getAllBookings, createBooking, updateBooking, deleteBooking } = require('./bookingController');
+const { getAvailabilityAdmin, getAllBookings, createBooking, updateBooking, deleteBooking } = require('./booking.admin.controller');
 const asyncHandlerMiddleware = require('../../../middlewares/asyncHandlerMiddleware');
 
 router.use(isAuthenticatedUser, authorizedRole('hall_owner', 'super_admin')); // DRY

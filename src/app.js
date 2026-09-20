@@ -13,10 +13,10 @@ const ApiError = require('./utils/apiError');
 const authRoutes = require('./modules/auth/authRoutes');
 const userRoutes = require('./modules/users/userRoutes');
 
-const publicHallRoutes = require('./modules/halls/public/publicRoutes');
+const publicHallRoutes = require('./modules/halls/public/hall.public.routes');
 const pubicBookingRoutes = require('./modules/bookings/public/booking.public.routes');
 
-const adminHallRoutes = require('./modules/halls/admin/adminRoutes');
+const adminHallRoutes = require('./modules/halls/admin/hall.admin.routes');
 const uploadRoutes = require('./modules/upload/uploadRoutes');
 const adminBookingRoutes = require('./modules/bookings/admin/booking.admin.routes');
 
