@@ -273,8 +273,10 @@ const adminHallQuerySchema = hallQuerySchema;
 
 const hallIdSchema = Joi.object({
   id: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .message('Invalid hall ID')
+    .trim()
+    .lowercase()
+    .pattern(/^[a-z0-9-]{3,100}$|^[0-9a-fA-F]{24}$/)
+    .message('Invalid hall ID or slug')
     .required(),
 });
 

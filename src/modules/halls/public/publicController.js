@@ -1,6 +1,7 @@
 const Hall = require('../hallModel');
 const ApiError = require('../../../utils/apiError');
 const { buildFilter, buildSearch, buildSort } = require('../hallConstants');
+const { default: mongoose } = require('mongoose');
 
 // Get all halls (only active)
 exports.getAllHalls = async (req, res) => {
@@ -12,6 +13,7 @@ exports.getAllHalls = async (req, res) => {
 
   const [halls, total] = await Promise.all([
     Hall.find(finalQuery)
+      .select('-owner -isDeleted -deletedAt -__v -isActive -isVerified')
       .sort(sortObj)
       .skip((q.page - 1) * q.limit)
       .limit(q.limit)
@@ -29,12 +31,18 @@ exports.getAllHalls = async (req, res) => {
   });
 };
 
-// Get hall details
+// Get hall details (supports both slug and mongo id)
 exports.getHallById = async (req, res, next) => {
+  const { id } = req.params;
+  const isObjectId = mongoose.Types.ObjectId.isValid(id);
+
   const hall = await Hall.findOne({
-    _id: req.params.id,
+    ...(isObjectId ? { $or: [{ _id: id }, { slug: id }] } : { slug: id }),
     isActive: true,
+    isVerified: true, // public should see only verified
   });
+
   if (!hall) return next(new ApiError('Hall not found.', 404));
+
   res.status(200).json({ success: true, data: hall });
 };
