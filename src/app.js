@@ -12,9 +12,13 @@ const ApiError = require('./utils/apiError');
 // Routes imports
 const authRoutes = require('./modules/auth/authRoutes');
 const userRoutes = require('./modules/users/userRoutes');
+
 const publicHallRoutes = require('./modules/halls/public/publicRoutes');
+const pubicBookingRoutes = require('./modules/bookings/public/booking.public.routes');
+
 const adminHallRoutes = require('./modules/halls/admin/adminRoutes');
 const uploadRoutes = require('./modules/upload/uploadRoutes');
+const adminBookingRoutes = require('./modules/bookings/admin/booking.admin.routes');
 
 const app = express();
 
@@ -64,9 +68,13 @@ app.get('/health', (req, res) => {
 // 7. Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
+
 app.use('/api/v1/halls', publicHallRoutes);
+app.use('/api/v1/bookings', pubicBookingRoutes);
+
 app.use('/api/v1/admin/halls', adminHallRoutes);
 app.use('/api/v1/admin/upload', uploadRoutes);
+app.use('/api/v1/admin/bookings', adminBookingRoutes);
 
 // 8. Unknown route catcher
 app.all('*', (req, res, next) => {
