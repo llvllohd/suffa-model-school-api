@@ -56,9 +56,7 @@ const createBookingSchema = Joi.object({
       'string.min': 'Customer name must be at least 2 characters',
       'string.max': 'Customer name cannot exceed 50 characters',
     }),
-    otherwise: Joi.forbidden().messages({
-      'any.unknown': 'Customer name should not be provided when blocked',
-    }),
+    otherwise: Joi.forbidden().messages({ 'any.unknown': 'Customer name should not be provided when blocked' }),
   }),
 
   customerPhone: Joi.when('type', {
@@ -72,9 +70,7 @@ const createBookingSchema = Joi.object({
         'string.empty': 'Customer phone cannot be empty',
         'string.pattern.base': 'Enter valid 10-digit mobile number starting with 6-9',
       }),
-    otherwise: Joi.forbidden().messages({
-      'any.unknown': 'Customer phone should not be provided when blocked',
-    }),
+    otherwise: Joi.forbidden().messages({ 'any.unknown': 'Customer phone should not be provided when blocked' }),
   }),
 
   advance: Joi.when('type', {
@@ -84,100 +80,81 @@ const createBookingSchema = Joi.object({
       'number.min': 'Advance cannot be negative',
       'number.max': 'Advance cannot exceed ₹10,00,000',
     }),
-    otherwise: Joi.forbidden().messages({
-      'any.unknown': 'Advance should not be provided when blocked',
-    }),
+    otherwise: Joi.forbidden().messages({ 'any.unknown': 'Advance should not be provided when blocked' }),
   }),
 
   notes: Joi.string().trim().max(300).optional().allow('', null).messages({
     'string.max': 'Notes cannot exceed 300 characters',
   }),
-});
+
+  // --- SECURITY FORBIDS ---
+  owner: Joi.forbidden(),
+  createdBy: Joi.forbidden(),
+  _id: Joi.forbidden(),
+  __v: Joi.forbidden(),
+  createdAt: Joi.forbidden(),
+  updatedAt: Joi.forbidden(),
+}).unknown(false);
 
 const updateBookingSchema = Joi.object({
   hall: Joi.string().hex().length(24).optional().messages({
     'string.hex': 'Please select a valid hall',
     'string.length': 'Please select a valid hall',
   }),
-
-  startDate: Joi.date()
-    .iso()
-    .optional()
-    .custom((val, helpers) => {
-      if (!val) return val;
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const d = new Date(val);
-      d.setUTCHours(0, 0, 0, 0);
-      if (d < today) return helpers.message('Start date cannot be in the past');
-      return val;
-    })
-    .messages({
-      'date.base': 'Start date must be a valid date',
-      'date.format': 'Start date must be in YYYY-MM-DD format',
-    }),
-
-  endDate: Joi.date()
-    .iso()
-    .optional()
-    .allow(null, '')
-    .custom((val, helpers) => {
-      if (!val) return val;
-      const { startDate } = helpers.state.ancestors[0];
-      if (startDate && new Date(val) < new Date(startDate)) {
-        return helpers.message('End date cannot be before start date');
-      }
-      return val;
-    })
-    .messages({
-      'date.base': 'End date must be a valid date',
-      'date.format': 'End date must be in YYYY-MM-DD format',
-    }),
-
+  startDate: Joi.date().iso().optional().messages({
+    'date.base': 'Start date must be a valid date',
+    'date.format': 'Start date must be in YYYY-MM-DD format',
+  }),
+  endDate: Joi.date().iso().optional().allow(null, '').messages({
+    'date.base': 'End date must be a valid date',
+    'date.format': 'End date must be in YYYY-MM-DD format',
+  }),
   type: Joi.string().valid('booked', 'blocked').optional().messages({
     'any.only': 'Type must be either booked or blocked',
-    'string.base': 'Booking type must be text',
   }),
-
   customerName: Joi.when('type', {
-    is: 'booked',
-    then: Joi.string().trim().min(2).max(50).optional().messages({
+    is: 'blocked',
+    then: Joi.forbidden().messages({ 'any.unknown': 'Customer name should not be provided when blocked' }),
+    otherwise: Joi.string().trim().min(2).max(50).optional().allow('', null).messages({
       'string.min': 'Customer name must be at least 2 characters',
       'string.max': 'Customer name cannot exceed 50 characters',
     }),
-    otherwise: Joi.string().trim().min(2).max(50).optional().allow('', null),
   }),
-
   customerPhone: Joi.when('type', {
-    is: 'booked',
-    then: Joi.string()
+    is: 'blocked',
+    then: Joi.forbidden().messages({ 'any.unknown': 'Customer phone should not be provided when blocked' }),
+    otherwise: Joi.string()
       .trim()
       .pattern(/^[6-9]\d{9}$/)
       .optional()
+      .allow('', null)
       .messages({
         'string.pattern.base': 'Enter valid 10-digit mobile number starting with 6-9',
       }),
-    otherwise: Joi.string().trim().optional().allow('', null),
   }),
-
   advance: Joi.when('type', {
-    is: 'booked',
-    then: Joi.number().min(0).max(1000000).optional().allow(null).messages({
+    is: 'blocked',
+    then: Joi.forbidden().messages({ 'any.unknown': 'Advance should not be provided when blocked' }),
+    otherwise: Joi.number().min(0).max(1000000).optional().allow(null).messages({
       'number.base': 'Advance must be a number',
       'number.min': 'Advance cannot be negative',
       'number.max': 'Advance cannot exceed ₹10,00,000',
     }),
-    otherwise: Joi.number().optional().allow(null, ''),
   }),
-
   notes: Joi.string().trim().max(300).optional().allow('', null).messages({
     'string.max': 'Notes cannot exceed 300 characters',
   }),
+
+  owner: Joi.forbidden(),
+  createdBy: Joi.forbidden(),
+  _id: Joi.forbidden(),
+  __v: Joi.forbidden(),
+  createdAt: Joi.forbidden(),
+  updatedAt: Joi.forbidden(),
 })
   .min(1)
-  .messages({
-    'object.min': 'At least one field is required to update',
-  });
+  .messages({ 'object.min': 'At least one field is required to update' })
+  .unknown(false);
 
 const bookingIdSchema = Joi.object({
   id: Joi.string().hex().length(24).required().messages({
@@ -185,7 +162,7 @@ const bookingIdSchema = Joi.object({
     'string.hex': 'Invalid ID format',
     'string.length': 'Invalid ID format',
   }),
-});
+}).unknown(false);
 
 const hallIdSchema = Joi.object({
   hallId: Joi.string().hex().length(24).required().messages({
@@ -193,20 +170,22 @@ const hallIdSchema = Joi.object({
     'string.hex': 'Invalid ID format',
     'string.length': 'Invalid ID format',
   }),
-});
+}).unknown(false);
 
 const hallQuerySchema = Joi.object({
-  id: Joi.string().hex().length(24).optional().messages({
+  hall: Joi.string().hex().length(24).optional().messages({
     'string.hex': 'Invalid ID format',
     'string.length': 'Invalid ID format',
   }),
-});
+}).unknown(false);
 
 const availabilityQuerySchema = Joi.object({
   month: Joi.string()
     .pattern(/^\d{4}-\d{2}$/)
     .required()
-    .messages({ 'string.pattern.base': 'month must be YYYY-MM' }),
-});
+    .messages({
+      'string.pattern.base': 'month must be YYYY-MM',
+    }),
+}).unknown(false);
 
 module.exports = { createBookingSchema, updateBookingSchema, bookingIdSchema, hallIdSchema, hallQuerySchema, availabilityQuerySchema };

@@ -34,7 +34,6 @@ const hallSchema = new mongoose.Schema(
     slug: {
       type: String,
       lowercase: true,
-      // removed unique:true - handled by partial index below
     },
     location: {
       address: {
@@ -112,40 +111,22 @@ const hallSchema = new mongoose.Schema(
       maxlength: [50, 'Name cannot exceed 50 characters'],
     },
     amenities: {
-      type: [
-        {
-          type: String,
-          enum: ['AC', 'Parking', 'Kitchen', 'Dining Hall', 'Bride Room', 'Sound System', 'Decoration', 'Generator', 'CCTV', 'Lift'],
-        },
-      ],
+      type: [{ type: String, enum: ['AC', 'Parking', 'Kitchen', 'Dining Hall', 'Bride Room', 'Sound System', 'Decoration', 'Generator', 'CCTV', 'Lift'] }],
       default: [],
     },
     images: {
       type: [imageSchema],
       required: [true, 'At least one hall image is required'],
       validate: [
-        {
-          validator: (v) => v.length > 0,
-          message: 'At least 1 image required',
-        },
-        {
-          validator: (v) => v.length <= 10,
-          message: 'Maximum 10 images allowed',
-        },
-        {
-          validator: (v) => v.every((img) => img.url && validator.isURL(img.url) && img.public_id),
-          message: 'All images must have valid URL and public_id',
-        },
+        { validator: (v) => v.length > 0, message: 'At least 1 image required' },
+        { validator: (v) => v.length <= 10, message: 'Maximum 10 images allowed' },
+        { validator: (v) => v.every((img) => img.url && validator.isURL(img.url) && img.public_id), message: 'All images must have valid URL and public_id' },
       ],
     },
     description: {
       type: String,
       trim: true,
       maxlength: [1000, 'Description cannot exceed 1000 characters'],
-    },
-    blockedDates: {
-      type: [Date],
-      default: [],
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -162,7 +143,7 @@ const hallSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// --- INDEXES (fixed, no duplicate) ---
+// --- INDEXES ---
 hallSchema.index({ name: 1, 'location.city': 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 hallSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 hallSchema.index({ owner: 1, isDeleted: 1 });
@@ -179,19 +160,56 @@ function hideDeleted(next) {
 }
 hallSchema.pre('find', hideDeleted);
 hallSchema.pre('findOne', hideDeleted);
-hallSchema.pre('findOneAndUpdate', hideDeleted);
 hallSchema.pre('countDocuments', hideDeleted);
 hallSchema.pre('count', hideDeleted);
+
+// combined findOneAndUpdate - hideDeleted + price check + slug
+hallSchema.pre('findOneAndUpdate', async function (next) {
+  if (!this.getOptions().withDeleted) {
+    this.where({ isDeleted: { $ne: true } });
+  }
+
+  const update = this.getUpdate() || {};
+  const set = update.$set || update;
+
+  if (set.pricePerDay !== undefined || set.pricePerHour !== undefined) {
+    try {
+      const existing = await this.model.findOne(this.getQuery()).select('pricePerDay pricePerHour name location.city').lean();
+      if (existing) {
+        const newPerDay = set.pricePerDay !== undefined ? set.pricePerDay : existing.pricePerDay;
+        const newPerHour = set.pricePerHour !== undefined ? set.pricePerHour : existing.pricePerHour;
+        if (newPerDay <= newPerHour) {
+          return next(new Error('Per day price must be greater than per hour price'));
+        }
+      }
+    } catch (e) {
+      return next(e);
+    }
+  }
+
+  if (set.name || set['location.city'] || set.location?.city) {
+    try {
+      const existing = await this.model.findOne(this.getQuery()).select('name location.city').lean();
+      if (existing) {
+        const name = set.name || existing.name;
+        const city = set['location.city'] || set.location?.city || existing.location.city;
+        const base = `${name} ${city}`;
+        const newSlug = slugify(base, { lower: true, strict: true });
+        if (update.$set) update.$set.slug = newSlug;
+        else update.slug = newSlug;
+        this.setUpdate(update);
+      }
+    } catch (e) {
+      return next(e);
+    }
+  }
+
+  next();
+});
 
 hallSchema.pre('save', function (next) {
   if (this.pricePerDay && this.pricePerHour && this.pricePerDay <= this.pricePerHour) {
     return next(new Error('Per day price must be greater than per hour price'));
-  }
-  if (this.isModified('blockedDates')) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const hasPast = this.blockedDates.some((d) => new Date(d).setHours(0, 0, 0, 0) < today);
-    if (hasPast) return next(new Error('Blocked date cannot be in past'));
   }
   if (this.isModified('name') || this.isModified('location.city') || !this.slug) {
     const base = `${this.name} ${this.location.city}`;
@@ -200,7 +218,6 @@ hallSchema.pre('save', function (next) {
   next();
 });
 
-// --- METHODS ---
 hallSchema.methods.softDelete = function () {
   if (this.isDeleted) return Promise.resolve(this);
   this.isDeleted = true;
