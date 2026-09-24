@@ -44,6 +44,7 @@ const createBooking = async (req, res, next) => {
 
   const booking = await Booking.create({
     hall,
+    owner: hallDoc.owner,
     startDate: sDate,
     endDate: eDate,
     type,
@@ -173,19 +174,25 @@ const getAvailabilityAdmin = async (req, res, next) => {
 
   const blockedDates = [];
   bookings.forEach((b) => {
-    let cur = new Date(b.startDate);
-    const stop = new Date(b.endDate);
+    const s = new Date(b.startDate);
+    const e = b.endDate ? new Date(b.endDate) : new Date(s);
+
+    // Use UTC to avoid timezone shift
+    let cur = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate()));
+    const stop = new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), e.getUTCDate()));
+
     while (cur <= stop) {
       blockedDates.push({
         date: cur.toISOString().split('T')[0],
-        type: b.type,
+        type: b.type, // booked | blocked
         bookingId: b._id,
+        _id: b._id, // added for frontend filter compatibility, doesn't break old code
       });
       cur.setUTCDate(cur.getUTCDate() + 1);
     }
   });
 
+  // Same response shape - doesn't break frontend
   res.json({ success: true, data: { bookings, blockedDates } });
 };
-
 module.exports = { createBooking, updateBooking, deleteBooking, getAvailabilityAdmin, getAllBookings };
