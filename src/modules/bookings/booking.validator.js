@@ -73,28 +73,49 @@ const createBookingSchema = Joi.object({
     otherwise: Joi.forbidden().messages({ 'any.unknown': 'Customer phone should not be provided when blocked' }),
   }),
 
-  advance: Joi.when('type', {
+  totalAmount: Joi.when('type', {
     is: 'booked',
-    then: Joi.number().min(0).max(1000000).optional().messages({
-      'number.base': 'Advance must be a number',
-      'number.min': 'Advance cannot be negative',
-      'number.max': 'Advance cannot exceed ₹10,00,000',
+    then: Joi.number().min(1).max(1000000).required().messages({
+      'any.required': 'Total amount is required',
+      'number.base': 'Total amount must be a number',
+      'number.min': 'Total amount must be at least ₹1',
+      'number.max': 'Total amount cannot exceed ₹10,00,000',
     }),
-    otherwise: Joi.forbidden().messages({ 'any.unknown': 'Advance should not be provided when blocked' }),
+    otherwise: Joi.forbidden().messages({ 'any.unknown': 'Total amount should not be provided when blocked' }),
+  }),
+
+  paidAmount: Joi.when('type', {
+    is: 'booked',
+    then: Joi.number().min(0).max(1000000).optional().default(0).messages({
+      'number.base': 'Paid amount must be a number',
+      'number.min': 'Paid amount cannot be negative',
+      'number.max': 'Paid amount cannot exceed ₹10,00,000',
+    }),
+    otherwise: Joi.forbidden().messages({ 'any.unknown': 'Paid amount should not be provided when blocked' }),
   }),
 
   notes: Joi.string().trim().max(300).optional().allow('', null).messages({
     'string.max': 'Notes cannot exceed 300 characters',
   }),
 
-  // --- SECURITY FORBIDS ---
+  remainingAmount: Joi.forbidden(),
+  paymentStatus: Joi.forbidden(),
   owner: Joi.forbidden(),
   createdBy: Joi.forbidden(),
   _id: Joi.forbidden(),
   __v: Joi.forbidden(),
   createdAt: Joi.forbidden(),
   updatedAt: Joi.forbidden(),
-}).unknown(false);
+})
+  .custom((obj, helpers) => {
+    if (obj.type === 'booked' && obj.totalAmount != null && obj.paidAmount != null) {
+      if (obj.paidAmount > obj.totalAmount) {
+        return helpers.message('Paid amount cannot exceed total amount');
+      }
+    }
+    return obj;
+  })
+  .unknown(false);
 
 const updateBookingSchema = Joi.object({
   hall: Joi.string().hex().length(24).optional().messages({
@@ -132,19 +153,30 @@ const updateBookingSchema = Joi.object({
         'string.pattern.base': 'Enter valid 10-digit mobile number starting with 6-9',
       }),
   }),
-  advance: Joi.when('type', {
+  totalAmount: Joi.when('type', {
     is: 'blocked',
-    then: Joi.forbidden().messages({ 'any.unknown': 'Advance should not be provided when blocked' }),
-    otherwise: Joi.number().min(0).max(1000000).optional().allow(null).messages({
-      'number.base': 'Advance must be a number',
-      'number.min': 'Advance cannot be negative',
-      'number.max': 'Advance cannot exceed ₹10,00,000',
+    then: Joi.forbidden().messages({ 'any.unknown': 'Total amount should not be provided when blocked' }),
+    otherwise: Joi.number().min(1).max(1000000).optional().messages({
+      'number.base': 'Total amount must be a number',
+      'number.min': 'Total amount must be at least ₹1',
+      'number.max': 'Total amount cannot exceed ₹10,00,000',
+    }),
+  }),
+  paidAmount: Joi.when('type', {
+    is: 'blocked',
+    then: Joi.forbidden().messages({ 'any.unknown': 'Paid amount should not be provided when blocked' }),
+    otherwise: Joi.number().min(0).max(1000000).optional().allow(null, '').messages({
+      'number.base': 'Paid amount must be a number',
+      'number.min': 'Paid amount cannot be negative',
+      'number.max': 'Paid amount cannot exceed ₹10,00,000',
     }),
   }),
   notes: Joi.string().trim().max(300).optional().allow('', null).messages({
     'string.max': 'Notes cannot exceed 300 characters',
   }),
 
+  remainingAmount: Joi.forbidden(),
+  paymentStatus: Joi.forbidden(),
   owner: Joi.forbidden(),
   createdBy: Joi.forbidden(),
   _id: Joi.forbidden(),
@@ -153,6 +185,16 @@ const updateBookingSchema = Joi.object({
   updatedAt: Joi.forbidden(),
 })
   .min(1)
+  .custom((obj, helpers) => {
+    const hasTotal = obj.totalAmount != null && obj.totalAmount !== '';
+    const hasPaid = obj.paidAmount != null && obj.paidAmount !== '' && obj.paidAmount !== null;
+    if (hasTotal && hasPaid) {
+      if (Number(obj.paidAmount) > Number(obj.totalAmount)) {
+        return helpers.message('Paid amount cannot exceed total amount');
+      }
+    }
+    return obj;
+  })
   .messages({ 'object.min': 'At least one field is required to update' })
   .unknown(false);
 
@@ -188,4 +230,11 @@ const availabilityQuerySchema = Joi.object({
     }),
 }).unknown(false);
 
-module.exports = { createBookingSchema, updateBookingSchema, bookingIdSchema, hallIdSchema, hallQuerySchema, availabilityQuerySchema };
+module.exports = {
+  createBookingSchema,
+  updateBookingSchema,
+  bookingIdSchema,
+  hallIdSchema,
+  hallQuerySchema,
+  availabilityQuerySchema,
+};

@@ -16,6 +16,7 @@ const userRoutes = require('./modules/users/userRoutes');
 const publicHallRoutes = require('./modules/halls/public/hall.public.routes');
 const pubicBookingRoutes = require('./modules/bookings/public/booking.public.routes');
 
+const adminDasboardRoutes = require('./modules/dashboard/dashboard.routes');
 const adminHallRoutes = require('./modules/halls/admin/hall.admin.routes');
 const uploadRoutes = require('./modules/upload/uploadRoutes');
 const adminBookingRoutes = require('./modules/bookings/admin/booking.admin.routes');
@@ -34,7 +35,7 @@ app.use(helmet());
 // 3. CORS - BEFORE body parsers & file upload
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || process.env.LOCALHOST,
+    origin: process.env.LOCALHOST || process.env.FRONTEND_URL,
     credentials: true,
   }),
 );
@@ -72,6 +73,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/halls', publicHallRoutes);
 app.use('/api/v1/bookings', pubicBookingRoutes);
 
+app.use('/api/v1/admin/dashboard', adminDasboardRoutes);
 app.use('/api/v1/admin/halls', adminHallRoutes);
 app.use('/api/v1/admin/upload', uploadRoutes);
 app.use('/api/v1/admin/bookings', adminBookingRoutes);
