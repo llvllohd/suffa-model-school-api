@@ -82,7 +82,14 @@ exports.updateHall = async (req, res, next) => {
   }
 
   if (body.location) {
-    Object.entries(body.location).forEach(([k, v]) => (hall.location[k] = v === '' ? undefined : v));
+    Object.entries(body.location).forEach(([k, v]) => {
+      // Don't set undefined on required field address
+      if (v === '' && k !== 'address') {
+        hall.location[k] = undefined;
+      } else if (v !== '') {
+        hall.location[k] = v;
+      }
+    });
     delete body.location;
   }
 

@@ -117,7 +117,7 @@ const updateHallValidationSchema = Joi.object({
     .optional()
     .min(1)
     .unknown(false),
-  capacity: Joi.number().min(50).max(10000).optional(),
+  capacity: Joi.number().min(50).max(50000).optional(),
   pricePerHour: Joi.number().min(500).optional(),
   pricePerDay: Joi.number().min(1000).optional(),
   contactPhone: Joi.string().trim().optional().custom(phoneCleaner).messages({ 'any.invalid': 'Please enter a valid phone number' }),

@@ -72,7 +72,7 @@ const hallSchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Guest capacity is required'],
       min: [50, 'Capacity must be at least 50 guests'],
-      max: [10000, 'Capacity cannot be more than 10000 guests'],
+      max: [50000, 'Capacity cannot be more than 50000 guests'],
     },
     pricePerHour: {
       type: Number,
