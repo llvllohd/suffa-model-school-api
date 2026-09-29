@@ -42,10 +42,12 @@ src/
 │   └── users/              # Get current user profile, update password
 └── utils/
     ├── apiError.js         # Custom error class (message, statusCode)
+    ├── checkMagicBytes.js  # Validates file magic bytes (JPEG/PNG/WebP/GIF)
     ├── cloudinary.js       # Upload/delete helpers wrapping cloudinary v2
     ├── cookieOptions.js    # Shared cookie config for JWT cookies
     ├── encryption.js       # CryptoJS AES encrypt/decrypt
     ├── logger.js           # pino logger instance
+    ├── paginate.js         # Reusable pagination helper for Mongoose queries
     ├── sendEmail.js        # Brevo (sib-api-v3-sdk) transactional email
     └── sendToken.js        # Sets access + refresh JWT cookies on response
 ```
@@ -58,11 +60,11 @@ All routes are prefixed `/api/v1`.
 |--------|------|------|-------------|
 | POST | `/auth/register` | - | Register new user |
 | POST | `/auth/login` | - | Login |
-| GET | `/auth/logout` | user | Logout |
+| POST | `/auth/logout` | user | Logout |
 | POST | `/auth/forgot-password` | - | Send reset email |
 | PUT | `/auth/password/update` | user | Change own password |
 | POST | `/auth/password/reset/:token` | - | Reset via token |
-| GET | `/auth/refresh-token` | - | Rotate JWT pair |
+| POST | `/auth/refresh-token` | - | Rotate JWT pair |
 | GET | `/users/me` | user | Get own profile |
 | GET | `/halls` | - | List halls (public, paginated, filterable) |
 | GET | `/halls/:id` | - | Get single hall (public) |
@@ -85,9 +87,9 @@ All routes are prefixed `/api/v1`.
 
 ## Data Models
 
-**User** — roles: `user`, `hall_owner`, `admin`, `super_admin`. Auth source types: `normal`, `google`, `phone`. Stores hashed password (bcrypt, 12 rounds), login attempt locking, reset password token (sha256), and OTP.
+**User** — roles: `user`, `hall_owner`, `super_admin`. Auth source types: `normal`, `google`, `phone`. Stores hashed password (bcrypt, 12 rounds), login attempt locking, reset password token (sha256), OTP, and `refreshTokenVersion` for token invalidation on logout/password change.
 
-**Hall** — location restricted to cities: `Bhatkal`, `Murdeshwar`, `Honavar`, `Kumta`. Amenity enum enforced at schema level. Images stored as Cloudinary URLs (1–10 images). Unique index on `(name, location.city)`. Soft-delete via `isActive` flag.
+**Hall** — location restricted to cities: `Bhatkal`, `Murdeshwar`, `Honavar`, `Kumta`. Amenity enum enforced at schema level. Images stored as Cloudinary URLs (1–10 images). Unique partial index on `(name, location.city)` where `isDeleted: false`. Soft-delete via `isDeleted` flag (also sets `isActive: false`).
 
 **Booking** — types: `booked` (customer booking with payment tracking) or `blocked` (date block, no customer fields). Fields for `booked`: `customerName`, `customerPhone`, `totalAmount`, `paidAmount`, `remainingAmount` (auto-computed), `paymentStatus` (auto-computed: `pending`/`partial`/`paid`). `endDate` defaults to `startDate` if omitted. Dates normalized to UTC midnight. Indexed on `(hall, startDate, endDate)` and `(owner, startDate)`.
 
@@ -95,11 +97,12 @@ All routes are prefixed `/api/v1`.
 
 - **Error handling**: throw `new ApiError(message, statusCode)` inside route handlers; `asyncHandler.middleware` forwards to global error handler.
 - **Validation**: Joi schemas live in `*Validator.js` beside the route file. Validate with `validate(schema, target)` where target is `'body'` (default), `'query'`, or `'params'`.
-- **Auth guard**: apply `isAuthenticatedUser` then `authorizedRole('admin')` — or use `router.use(...)` at the top of admin routers (DRY pattern already established). Booking and dashboard routes use `authorizedRole('hall_owner', 'super_admin')`.
-- **Password flow**: client sends AES-encrypted password; `decryptPassword.middleware` decrypts before Joi validation runs.
+- **Auth guard**: apply `isAuthenticatedUser` then `authorizedRole('hall_owner', 'super_admin')` — or use `router.use(...)` at the top of admin routers (DRY pattern already established).
+- **Password flow**: passwords are sent as plaintext over HTTPS. `decryptPassword.middleware` exists but is not wired to any route.
 - **Tokens**: short-lived access token (default 15m) + long-lived refresh token (default 7d) set as HttpOnly cookies via `sendToken`.
 - **Logging**: use the pino `logger` instance from `utils/logger.js` — never `console.log` in production paths.
-- **File uploads**: `express-fileupload` with `useTempFiles: true`; files land in `/tmp/` before Cloudinary upload. 5MB limit enforced.
+- **File uploads**: `express-fileupload` with `useTempFiles: true`; files land in `/tmp/` before Cloudinary upload. 5MB limit enforced. MIME type and magic bytes (JPEG/PNG/WebP/GIF) validated before upload; temp files are always cleaned up.
+- **Booking overlap**: `createBooking` and `updateBooking` use MongoDB transactions (`session.withTransaction`) to atomically check for overlapping bookings and write, preventing race conditions.
 
 ## Environment Variables Required
 

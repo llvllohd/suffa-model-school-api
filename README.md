@@ -6,16 +6,16 @@ Built with Node.js, Express.js, and MongoDB.
 
 ## Features
 
-- JWT authentication with short-lived access tokens and rotating refresh tokens (HttpOnly cookies)
-- AES-encrypted password transport from client
-- Role-based access control: `user`, `hall_owner`, `admin`, `super_admin`
-- API key guard on all routes (`X-API-Key` header)
+- JWT authentication with short-lived access tokens (15m) and rotating refresh tokens (7d, HttpOnly cookies)
+- Refresh token versioning — tokens invalidated immediately on logout or password change
+- Role-based access control: `user`, `hall_owner`, `super_admin`
 - Account lockout after configurable failed login attempts
 - Forgot/reset password via email token and OTP
-- Hall management: create, update, soft-delete, image gallery
-- Cloudinary image upload and deletion (admin)
-- Public hall listing with filtering and pagination
+- Hall management: create, update, soft-delete, restore, verify, image gallery
+- Cloudinary image upload with MIME type and magic bytes validation
+- Public hall listing with filtering, search, and pagination
 - Booking management: create `booked` or `blocked` entries, payment tracking (pending/partial/paid), auto-computed remaining amount
+- Atomic booking overlap prevention via MongoDB transactions
 - Public availability calendar per hall (returns booked/blocked dates by month)
 - Monthly dashboard summary: revenue, payment breakdown, occupancy stats
 - Brevo transactional email integration
@@ -49,11 +49,11 @@ Base path: `/api/v1`
 |--------|----------|------|-------------|
 | POST | `/auth/register` | - | Register user |
 | POST | `/auth/login` | - | Login, sets JWT cookies |
-| GET | `/auth/logout` | user | Clears JWT cookies |
+| POST | `/auth/logout` | user | Clears JWT cookies |
 | POST | `/auth/forgot-password` | - | Send reset email |
 | POST | `/auth/password/reset/:token` | - | Reset password via token |
 | PUT | `/auth/password/update` | user | Update own password |
-| GET | `/auth/refresh-token` | - | Rotate access + refresh tokens |
+| POST | `/auth/refresh-token` | - | Rotate access + refresh tokens |
 
 ### Users
 
@@ -152,7 +152,8 @@ JWT_REFRESH_EXPIRATION=7d
 
 FRONTEND_URL=http://localhost:3000
 LOCALHOST=http://localhost:3000
-COOKIE_EXPIRES=7
+COOKIE_EXPIRATION=15
+COOKIE_REFRESH_EXPIRATION=7
 
 CLOUDINARY_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
@@ -160,17 +161,16 @@ CLOUDINARY_API_SECRET=your_api_secret
 CLOUDINARY_FOLDER_NAME=bhatkal-halls
 
 ENCRYPTION_SECRET=your_aes_secret
-API_KEY=your_api_key
 
 PASSWORD_EXPIRE=10
 OTP_EXPIRE=10
 LOGIN_MAX_ATTEMPTS=5
 LOGIN_LOCK_MINUTES=15
 
-# Brevo (email)
-BREVO_API_KEY=your_brevo_key
-SENDER_EMAIL=noreply@bhatkalhalls.com
-SENDER_NAME=Bhatkal Halls
+# Brevo (sib-api-v3-sdk)
+SENDINBLUE_API_KEY=your_brevo_key
+SMTP_MAIL=noreply@bhatkalhalls.com
+APP_NAME=BhatkalHalls
 ```
 
 ### Running
