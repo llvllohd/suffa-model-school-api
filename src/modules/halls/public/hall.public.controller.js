@@ -3,33 +3,22 @@ const Booking = require('../../bookings/booking.model');
 const ApiError = require('../../../utils/apiError');
 const { buildFilter, buildSearch, buildSort } = require('../hall.constants');
 const { default: mongoose } = require('mongoose');
+const paginate = require('../../../utils/paginate');
 
-// Get all halls (only active) - keep as is
 exports.getAllHalls = async (req, res) => {
   const q = req.query;
   const filter = buildFilter(q, false);
   const searchQuery = buildSearch(q.search);
   const finalQuery = searchQuery ? { $and: [filter, searchQuery] } : filter;
-  const sortObj = buildSort(q.sort);
 
-  const [halls, total] = await Promise.all([
-    Hall.find(finalQuery)
-      .select('-owner -isDeleted -deletedAt -__v -isActive -isVerified')
-      .sort(sortObj)
-      .skip((q.page - 1) * q.limit)
-      .limit(q.limit)
-      .lean(),
-    Hall.countDocuments(finalQuery),
-  ]);
-
-  res.status(200).json({
-    success: true,
-    total,
+  const result = await paginate(Hall, finalQuery, {
     page: q.page,
-    pages: Math.ceil(total / q.limit),
     limit: q.limit,
-    data: halls,
+    sort: buildSort(q.sort),
+    select: '-owner -isDeleted -deletedAt -__v -isActive -isVerified',
   });
+
+  res.status(200).json({ success: true, ...result });
 };
 
 // Get hall details (supports both slug and mongo id) + blockedDates
@@ -41,7 +30,9 @@ exports.getHallById = async (req, res, next) => {
     ...(isObjectId ? { $or: [{ _id: id }, { slug: id }] } : { slug: id }),
     isActive: true,
     isVerified: true,
-  }).lean();
+  })
+    .select('-owner -createdBy -isDeleted -deletedAt -isActive -isVerified -__v')
+    .lean();
 
   if (!hall) return next(new ApiError('Hall not found.', 404));
 
@@ -53,7 +44,6 @@ exports.getHallById = async (req, res, next) => {
 
   const bookings = await Booking.find({
     hall: hall._id,
-    status: { $ne: 'cancelled' },
     startDate: { $lte: end },
     endDate: { $gte: start },
   })

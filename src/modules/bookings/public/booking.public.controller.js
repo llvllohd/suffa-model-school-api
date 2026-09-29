@@ -6,7 +6,7 @@ const getAvailability = async (req, res, next) => {
   const { hallId } = req.params;
   const { month } = req.query; // YYYY-MM validated by Joi
 
-  const hallDoc = await Hall.findById(hallId).select('_id');
+  const hallDoc = await Hall.findOne({ _id: hallId, isActive: true, isVerified: true }).select('_id');
   if (!hallDoc) return next(new ApiError('Hall not found', 404));
 
   const start = new Date(`${month}-01T00:00:00.000Z`);
@@ -16,7 +16,6 @@ const getAvailability = async (req, res, next) => {
 
   const bookings = await Booking.find({
     hall: hallId,
-    status: { $ne: 'cancelled' },
     startDate: { $lte: end },
     endDate: { $gte: start },
   })

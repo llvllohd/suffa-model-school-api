@@ -10,12 +10,13 @@ exports.getMe = async (req, res, next) => {
 };
 
 exports.updatePassword = async (req, res, next) => {
-  const user = await User.findById(req.user.id).select('+password');
+  const user = await User.findById(req.user._id).select('+password');
   const isPasswordMatched = await user.comparePassword(req.body.oldPassword);
   if (!isPasswordMatched) {
     return next(new ApiError('The old password you entered is incorrect', 400));
   }
   user.password = req.body.newPassword;
+  user.refreshTokenVersion = (user.refreshTokenVersion || 0) + 1;
   await user.save();
   sendToken(user, 200, res);
 };

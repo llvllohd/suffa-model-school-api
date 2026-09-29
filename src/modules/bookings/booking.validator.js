@@ -214,16 +214,18 @@ const hallIdSchema = Joi.object({
   }),
 }).unknown(false);
 
-const hallQuerySchema = Joi.object({
+const bookingQuerySchema = Joi.object({
   hall: Joi.string().hex().length(24).optional().messages({
     'string.hex': 'Invalid ID format',
     'string.length': 'Invalid ID format',
   }),
+  page: Joi.number().integer().min(1).max(50).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
 }).unknown(false);
 
 const availabilityQuerySchema = Joi.object({
   month: Joi.string()
-    .pattern(/^\d{4}-\d{2}$/)
+    .pattern(/^\d{4}-(0[1-9]|1[0-2])$/)
     .required()
     .messages({
       'string.pattern.base': 'month must be YYYY-MM',
@@ -235,6 +237,6 @@ module.exports = {
   updateBookingSchema,
   bookingIdSchema,
   hallIdSchema,
-  hallQuerySchema,
+  bookingQuerySchema,
   availabilityQuerySchema,
 };

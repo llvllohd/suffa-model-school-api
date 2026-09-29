@@ -24,11 +24,11 @@ exports.buildFilter = (q, isAdmin = false) => {
   }
 
   if (isAdmin) {
-    if (q.isActive !== undefined) filter.isActive = q.isActive === 'true';
-    if (q.isVerified !== undefined) filter.isVerified = q.isVerified === 'true';
+    if (q.isActive !== undefined) filter.isActive = q.isActive;
+    if (q.isVerified !== undefined) filter.isVerified = q.isVerified;
   }
 
-  if (q.city) filter['location.city'] = { $regex: q.city, $options: 'i' };
+  if (q.city) filter['location.city'] = q.city;
 
   if (q.capacity !== undefined) {
     if (typeof q.capacity === 'string' || typeof q.capacity === 'number') {

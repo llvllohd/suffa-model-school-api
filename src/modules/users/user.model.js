@@ -73,6 +73,7 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpire: { type: Date, select: false },
     resetPasswordOtp: { type: String, select: false },
     resetPasswordOtpExpire: { type: Date, select: false },
+    refreshTokenVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
@@ -90,12 +91,12 @@ userSchema.pre('save', async function (next) {
 
 // Generate Token
 userSchema.methods.generateToken = function () {
-  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRATION || '15m' });
+  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRATION || '15m', algorithm: 'HS256' });
 };
 
 // Generate Refresh Token
 userSchema.methods.generateRefreshToken = function () {
-  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d' });
+  return jwt.sign({ id: this._id, role: this.role, version: this.refreshTokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d', algorithm: 'HS256' });
 };
 
 // Compare Password

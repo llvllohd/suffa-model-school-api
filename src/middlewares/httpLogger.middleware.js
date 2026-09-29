@@ -6,7 +6,11 @@ const httpLogger = pinoHttp({
   logger,
 
   // Generate requestId for every request
-  genReqId: (req) => req.headers['x-request-id'] || uuidv4(),
+  genReqId: (req) => {
+    const incoming = req.headers['x-request-id'];
+    const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return incoming && uuidV4Regex.test(incoming) ? incoming : uuidv4();
+  },
 
   // This stops full req/res dump
   serializers: {

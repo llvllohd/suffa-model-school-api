@@ -8,6 +8,6 @@ const asyncHandlerMiddleware = require('../../../middlewares/asyncHandler.middle
 const { getAllHalls, getHallById } = require('./hall.public.controller');
 
 router.get('/', hallSearchLimiter, validate(publicHallQuerySchema, 'query'), asyncHandlerMiddleware(getAllHalls));
-router.get('/:id', validate(hallIdSchema, 'params'), asyncHandlerMiddleware(getHallById));
+router.get('/:id', hallSearchLimiter, validate(hallIdSchema, 'params'), asyncHandlerMiddleware(getHallById));
 
 module.exports = router;

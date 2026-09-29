@@ -1,6 +1,7 @@
 const { HALL_UPDATABLE_FIELDS, buildFilter, buildSearch, buildSort } = require('../hall.constants');
 const Hall = require('../hall.model');
 const ApiError = require('../../../utils/apiError');
+const paginate = require('../../../utils/paginate');
 
 // Create a new hall
 exports.createHall = async (req, res, next) => {
@@ -23,8 +24,6 @@ exports.createHall = async (req, res, next) => {
 // Get all halls (active + inactive)
 exports.getAllHallsAdmin = async (req, res) => {
   const q = req.query;
-  const page = parseInt(q.page) || 1;
-  const limit = Math.min(parseInt(q.limit) || 10, 50);
 
   const filter = buildFilter(q, true);
   const searchQuery = buildSearch(q.search);
@@ -34,25 +33,14 @@ exports.getAllHallsAdmin = async (req, res) => {
   }
 
   const finalQuery = searchQuery ? { $and: [filter, searchQuery] } : filter;
-  const sortObj = buildSort(q.sort);
 
-  const [halls, total] = await Promise.all([
-    Hall.find(finalQuery)
-      .sort(sortObj)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    Hall.countDocuments(finalQuery),
-  ]);
-
-  res.status(200).json({
-    success: true,
-    total,
-    page,
-    pages: Math.ceil(total / limit),
-    limit: limit,
-    data: halls,
+  const result = await paginate(Hall, finalQuery, {
+    page: q.page,
+    limit: q.limit,
+    sort: buildSort(q.sort),
   });
+
+  res.status(200).json({ success: true, ...result });
 };
 
 // Get hall detail

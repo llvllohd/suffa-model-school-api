@@ -17,14 +17,15 @@ const errorHandler = (err, req, res, next) => {
 
   // Invalid MongoDB ObjectId: /api/halls/abc123
   if (err.name === 'CastError') {
-    const message = `Invalid ID format: ${err.value}`;
-    error = new ApiError(message, 400);
+    error = new ApiError('Invalid ID format', 400);
   }
 
   // Duplicate key: email already exists - MongoDB code 11000
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
-    const message = `${field} already exists. Please use another ${field}`;
+    const userFacingFields = { email: 'email', phone: 'phone number', name: 'hall name' };
+    const label = userFacingFields[field] || 'value';
+    const message = `This ${label} is already in use. Please try another.`;
     error = new ApiError(message, 400);
   }
 

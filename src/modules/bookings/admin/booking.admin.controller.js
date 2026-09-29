@@ -1,8 +1,10 @@
+const mongoose = require('mongoose');
 const ApiError = require('../../../utils/apiError');
 const Booking = require('../booking.model');
 const Hall = require('../../halls/hall.model');
+const paginate = require('../../../utils/paginate');
 
-const checkOverlappingBooking = async (BookingModel, { hallId, sDate, eDate, excludeId = null }) => {
+const checkOverlappingBooking = async (BookingModel, { hallId, sDate, eDate, excludeId = null }, session = null) => {
   const query = {
     hall: hallId,
     startDate: { $lte: eDate },
@@ -10,7 +12,7 @@ const checkOverlappingBooking = async (BookingModel, { hallId, sDate, eDate, exc
   };
   if (excludeId) query._id = { $ne: excludeId };
 
-  const overlapping = await BookingModel.findOne(query);
+  const overlapping = await BookingModel.findOne(query).session(session);
   if (overlapping) {
     throw new ApiError(
       `Hall already ${overlapping.type} from ${overlapping.startDate.toISOString().split('T')[0]} to ${overlapping.endDate.toISOString().split('T')[0]}`,
@@ -48,8 +50,6 @@ const createBooking = async (req, res, next) => {
   const sDate = toMidnight(startDate);
   const eDate = endDate ? toMidnight(endDate) : sDate;
 
-  await checkOverlappingBooking(Booking, { hallId: hall, sDate, eDate });
-
   let payload = {
     hall,
     owner: hallDoc.owner,
@@ -63,20 +63,21 @@ const createBooking = async (req, res, next) => {
   if (type === 'booked') {
     const paid = paidAmount ?? 0;
     if (paid > totalAmount) return next(new ApiError('Paid amount cannot exceed total amount', 400));
-
     const { remaining, status } = calcPayment(totalAmount, paid);
-    payload = {
-      ...payload,
-      customerName,
-      customerPhone,
-      totalAmount,
-      paidAmount: paid,
-      remainingAmount: remaining,
-      paymentStatus: status,
-    };
+    payload = { ...payload, customerName, customerPhone, totalAmount, paidAmount: paid, remainingAmount: remaining, paymentStatus: status };
   }
 
-  const booking = await Booking.create(payload);
+  const session = await mongoose.startSession();
+  let booking;
+  try {
+    await session.withTransaction(async () => {
+      await checkOverlappingBooking(Booking, { hallId: hall, sDate, eDate }, session);
+      const created = await Booking.create([payload], { session });
+      booking = created[0];
+    });
+  } finally {
+    session.endSession();
+  }
 
   res.status(201).json({
     success: true,
@@ -111,10 +112,6 @@ const updateBooking = async (req, res, next) => {
   const sDate = startDate ? toMidnight(startDate) : existing.startDate;
   const eDate = endDate !== undefined ? (endDate ? toMidnight(endDate) : sDate) : existing.endDate;
 
-  if (hall || startDate || endDate) {
-    await checkOverlappingBooking(Booking, { hallId: hallToCheck, sDate, eDate, excludeId: id });
-  }
-
   const payload = { ...req.body };
   if (startDate) payload.startDate = sDate;
   if (endDate !== undefined) payload.endDate = eDate;
@@ -122,52 +119,45 @@ const updateBooking = async (req, res, next) => {
 
   const finalType = type || existing.type;
 
-  let booking;
-  if (finalType === 'blocked') {
-    booking = await Booking.findByIdAndUpdate(
-      id,
-      {
-        $set: payload,
-        $unset: {
-          customerName: 1,
-          customerPhone: 1,
-          totalAmount: 1,
-          paidAmount: 1,
-          remainingAmount: 1,
-          paymentStatus: 1,
-        },
-      },
-      { new: true, runValidators: true },
-    );
-  } else {
+  if (finalType === 'booked') {
     if (existing.type === 'blocked' && finalType === 'booked') {
-      if (payload.totalAmount == null) {
-        return next(new ApiError('Total amount is required when converting blocked to booked', 400));
-      }
-      if (!payload.customerName) {
-        return next(new ApiError('Customer name is required when converting blocked to booked', 400));
-      }
-      if (!payload.customerPhone) {
-        return next(new ApiError('Customer phone is required when converting blocked to booked', 400));
-      }
+      if (payload.totalAmount == null) return next(new ApiError('Total amount is required when converting blocked to booked', 400));
+      if (!payload.customerName) return next(new ApiError('Customer name is required when converting blocked to booked', 400));
+      if (!payload.customerPhone) return next(new ApiError('Customer phone is required when converting blocked to booked', 400));
     }
-
     const total = payload.totalAmount ?? existing.totalAmount ?? 0;
     const paid = payload.paidAmount ?? existing.paidAmount ?? 0;
-
-    if (total === 0 && finalType === 'booked') {
-      return next(new ApiError('Total amount is required for booked type', 400));
-    }
-
+    if (total === 0) return next(new ApiError('Total amount is required for booked type', 400));
     if (paid > total) return next(new ApiError('Paid amount cannot exceed total amount', 400));
-
     const { remaining, status } = calcPayment(total, paid);
     payload.totalAmount = total;
     payload.paidAmount = paid;
     payload.remainingAmount = remaining;
     payload.paymentStatus = status;
+  }
 
-    booking = await Booking.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
+  const needsOverlapCheck = !!(hall || startDate || endDate);
+
+  const session = await mongoose.startSession();
+  let booking;
+  try {
+    await session.withTransaction(async () => {
+      if (needsOverlapCheck) {
+        await checkOverlappingBooking(Booking, { hallId: hallToCheck, sDate, eDate, excludeId: id }, session);
+      }
+
+      if (finalType === 'blocked') {
+        booking = await Booking.findByIdAndUpdate(
+          id,
+          { $set: payload, $unset: { customerName: 1, customerPhone: 1, totalAmount: 1, paidAmount: 1, remainingAmount: 1, paymentStatus: 1 } },
+          { new: true, runValidators: true, session },
+        );
+      } else {
+        booking = await Booking.findByIdAndUpdate(id, payload, { new: true, runValidators: true, session });
+      }
+    });
+  } finally {
+    session.endSession();
   }
 
   res.status(200).json({
@@ -192,16 +182,19 @@ const deleteBooking = async (req, res, next) => {
 };
 
 const getAllBookings = async (req, res) => {
+  const { hall, page, limit } = req.query;
   const filter = {};
-  if (req.query.hall) filter.hall = req.query.hall;
+  if (hall) filter.hall = hall;
   if (req.user.role !== 'super_admin') filter.owner = req.user._id;
 
-  const bookings = await Booking.find(filter).populate('hall', 'name').sort({ startDate: -1 }).lean();
-  res.status(200).json({
-    success: true,
-    count: bookings.length,
-    data: bookings,
+  const result = await paginate(Booking, filter, {
+    page,
+    limit,
+    sort: { startDate: -1 },
+    populate: { path: 'hall', select: 'name' },
   });
+
+  res.status(200).json({ success: true, ...result });
 };
 
 const getAvailabilityAdmin = async (req, res, next) => {

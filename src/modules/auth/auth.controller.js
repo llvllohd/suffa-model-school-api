@@ -23,7 +23,7 @@ exports.loginUser = async (req, res, next) => {
   if (!user) return next(new ApiError('Invalid email or password.', 401));
   if (user.isLocked) return next(new ApiError(`Your account is locked, please try after ${LOCK_MINUTES} min(s)`, 423));
   if (user.sourceType !== 'normal') {
-    return next(new ApiError(`Please login via ${user.sourceType}.`, 400));
+    return next(new ApiError('Invalid email or password.', 401));
   }
   const isPasswordMatched = await user.comparePassword(password);
   if (!isPasswordMatched) {
@@ -61,7 +61,7 @@ exports.forgotPassword = async (req, res, next) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save({ validateBeforeSave: false });
-    return next(new ApiError(error.message, 500));
+    return next(new ApiError('Failed to send email. Please try again.', 500));
   }
 };
 
@@ -80,6 +80,7 @@ exports.resetPassword = async (req, res, next) => {
   user.password = password;
   user.resetPasswordToken = undefined;
   user.resetPasswordExpire = undefined;
+  user.refreshTokenVersion = (user.refreshTokenVersion || 0) + 1;
 
   await user.save(); // keep validations ON
 
@@ -92,15 +93,18 @@ exports.refreshToken = async (req, res, next) => {
   if (!refreshToken) {
     return next(new ApiError('Your session has timed out. Please login.', 401));
   }
-  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] });
   const user = await User.findById(decoded.id);
   if (!user) {
+    return next(new ApiError('Your session has timed out. Please login.', 401));
+  }
+  if (decoded.version !== user.refreshTokenVersion) {
     return next(new ApiError('Your session has timed out. Please login.', 401));
   }
   const token = user.generateToken();
   res
     .status(200)
-    .cookie('token', token, getCookieOptionsForToken()) // 15 minutes for access token
+    .cookie('token', token, getCookieOptionsForToken())
     .json({
       success: true,
       message: 'Token refreshed successfully',
@@ -109,6 +113,7 @@ exports.refreshToken = async (req, res, next) => {
 
 // Logout User
 exports.logoutUser = async (req, res, next) => {
+  await User.updateOne({ _id: req.user._id }, { $inc: { refreshTokenVersion: 1 } });
   res.clearCookie('token', getClearCookieOptions());
   res.clearCookie('refreshToken', getClearCookieOptions());
   res.status(200).json({

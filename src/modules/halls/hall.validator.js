@@ -91,7 +91,10 @@ const addHallValidationSchema = Joi.object({
   isActive: Joi.forbidden().messages({ 'any.unknown': 'isActive cannot be set on create' }),
   isVerified: Joi.forbidden(),
   isFeatured: Joi.forbidden(),
-  owner: Joi.forbidden(),
+  owner: Joi.string().hex().length(24).optional().messages({
+    'string.hex': 'Owner must be a valid user ID',
+    'string.length': 'Owner must be a valid user ID',
+  }),
   slug: Joi.forbidden(),
   _id: Joi.forbidden(),
   __v: Joi.forbidden(),
@@ -157,7 +160,7 @@ const updateHallValidationSchema = Joi.object({
   });
 
 const hallQuerySchema = Joi.object({
-  city: Joi.string().trim().max(50).lowercase(),
+  city: Joi.string().valid('bhatkal', 'murdeshwar', 'honavar', 'kumta').lowercase(),
   capacity: Joi.alternatives().try(
     Joi.number().integer().min(1),
     Joi.object({
@@ -174,10 +177,20 @@ const hallQuerySchema = Joi.object({
       is: Joi.exist(),
       then: Joi.number().greater(Joi.ref('minPrice')).messages({ 'number.greater': 'maxPrice must be greater than minPrice' }),
     }),
-  amenities: Joi.string().trim().max(200),
+  amenities: Joi.string()
+    .trim()
+    .max(200)
+    .custom((value, helpers) => {
+      const valid = ['AC', 'Parking', 'Kitchen', 'Dining Hall', 'Bride Room', 'Sound System', 'Decoration', 'Generator', 'CCTV', 'Lift'];
+      const items = value.split(',').map((s) => s.trim()).filter(Boolean);
+      const invalid = items.find((item) => !valid.includes(item));
+      if (invalid) return helpers.error('any.invalid');
+      return value;
+    })
+    .messages({ 'any.invalid': 'amenities contains an invalid value' }),
   search: Joi.string().trim().max(100),
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  page: Joi.number().integer().min(1).max(50).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(10),
   sort: Joi.string()
     .custom((value, helpers) => {
       for (const f of value.split(',')) {

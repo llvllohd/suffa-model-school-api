@@ -3,7 +3,7 @@ const Joi = require('joi');
 exports.deleteImageValidationSchema = Joi.object({
   public_id: Joi.string()
     .trim()
-    .pattern(/^[a-zA-Z0-9/_-]+$/)
+    .pattern(/^[a-zA-Z0-9/._-]+$/)
     .min(1)
     .max(200)
     .required()

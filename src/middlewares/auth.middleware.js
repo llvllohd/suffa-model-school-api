@@ -8,13 +8,15 @@ exports.isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
   const { token } = req.cookies;
   if (!token) return next(new ApiError('Your session has timed out. Please login.', 401));
 
-  const decodedData = jwt.verify(token, process.env.JWT_SECRET);
-  const user = await User.findById(decodedData.id).select('_id name email phone role avatar createdAt').lean();
+  const decodedData = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+  const user = await User.findById(decodedData.id).select('_id name email phone role avatar createdAt isActive').lean();
 
-  if (!user) {
+  if (!user || !user.isActive) {
     return next(new ApiError('Your session has timed out. Please login.', 401));
   }
-  req.user = user;
+
+  const { isActive: _isActive, ...safeUser } = user;
+  req.user = safeUser;
   if (user?.role === 'hall_owner') {
     const hall = await Hall.findOne({ owner: user._id }).select('name slug').lean();
     req.user.hallName = hall?.name || null;

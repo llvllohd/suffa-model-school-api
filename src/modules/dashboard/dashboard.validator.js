@@ -8,7 +8,7 @@ const dashboardQuerySchema = Joi.object({
     'string.empty': 'Hall ID is required',
   }),
   month: Joi.string()
-    .pattern(/^\d{4}-\d{2}$/)
+    .pattern(/^\d{4}-(0[1-9]|1[0-2])$/)
     .required()
     .messages({
       'string.pattern.base': 'Month must be YYYY-MM',
