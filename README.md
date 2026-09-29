@@ -8,12 +8,16 @@ Built with Node.js, Express.js, and MongoDB.
 
 - JWT authentication with short-lived access tokens and rotating refresh tokens (HttpOnly cookies)
 - AES-encrypted password transport from client
-- Role-based access control: `user`, `hall_owner`, `admin`
+- Role-based access control: `user`, `hall_owner`, `admin`, `super_admin`
+- API key guard on all routes (`X-API-Key` header)
 - Account lockout after configurable failed login attempts
 - Forgot/reset password via email token and OTP
 - Hall management: create, update, soft-delete, image gallery
 - Cloudinary image upload and deletion (admin)
 - Public hall listing with filtering and pagination
+- Booking management: create `booked` or `blocked` entries, payment tracking (pending/partial/paid), auto-computed remaining amount
+- Public availability calendar per hall (returns booked/blocked dates by month)
+- Monthly dashboard summary: revenue, payment breakdown, occupancy stats
 - Brevo transactional email integration
 - Request logging via pino
 - Rate limiting per route group (auth, forgot password, hall search, token refresh)
@@ -68,18 +72,42 @@ Base path: `/api/v1`
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/admin/halls` | admin | Create hall |
-| GET | `/admin/halls` | admin | List all halls |
-| GET | `/admin/halls/:id` | admin | Get hall by ID |
-| PATCH | `/admin/halls/:id` | admin | Update hall |
-| DELETE | `/admin/halls/:id` | admin | Delete hall |
+| POST | `/admin/halls` | hall_owner, super_admin | Create hall |
+| GET | `/admin/halls` | hall_owner, super_admin | List all halls |
+| GET | `/admin/halls/:id` | hall_owner, super_admin | Get hall by ID |
+| PATCH | `/admin/halls/:id` | hall_owner, super_admin | Update hall |
+| DELETE | `/admin/halls/:id` | hall_owner, super_admin | Delete hall |
+| PATCH | `/admin/halls/:id/verify` | super_admin | Verify a hall |
+| POST | `/admin/halls/:id/restore` | super_admin | Restore a soft-deleted hall |
 
 ### Upload (Admin)
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/admin/upload/images` | admin | Upload images to Cloudinary |
-| DELETE | `/admin/upload/images` | admin | Delete image from Cloudinary |
+| POST | `/admin/upload/images` | hall_owner, super_admin | Upload images to Cloudinary |
+| DELETE | `/admin/upload/images` | hall_owner, super_admin | Delete image from Cloudinary |
+
+### Bookings (Public)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/bookings/availability/:hallId` | - | Booked/blocked dates for a hall (`?month=YYYY-MM`) |
+
+### Bookings (Admin)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/admin/bookings/availability/:hallId` | hall_owner, super_admin | Availability with full booking detail |
+| GET | `/admin/bookings` | hall_owner, super_admin | List bookings (filter by `?hall=id`) |
+| POST | `/admin/bookings` | hall_owner, super_admin | Create booking or blocked date |
+| PATCH | `/admin/bookings/:id` | hall_owner, super_admin | Update booking |
+| DELETE | `/admin/bookings/:id` | hall_owner, super_admin | Delete booking |
+
+### Dashboard (Admin)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/admin/dashboard` | hall_owner, super_admin | Monthly summary — bookings, revenue, payment breakdown, occupancy (`?hall=id&month=YYYY-MM`) |
 
 ### Health
 
@@ -132,6 +160,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 CLOUDINARY_FOLDER_NAME=bhatkal-halls
 
 ENCRYPTION_SECRET=your_aes_secret
+API_KEY=your_api_key
 
 PASSWORD_EXPIRE=10
 OTP_EXPIRE=10
@@ -167,14 +196,20 @@ src/
 ├── app.js                    # Express app, middleware stack, routes
 ├── server.js                 # HTTP server, DB connect, process signals
 ├── config/db.js              # Mongoose connection
-├── middlewares/              # Auth, validation, rate limit, error, logging
+├── middlewares/              # Auth, validation, rate limit, error, logging, API key
 ├── modules/
 │   ├── auth/                 # Auth controllers, routes, validators
+│   ├── bookings/
+│   │   ├── admin/            # Booking CRUD (hall_owner / super_admin)
+│   │   ├── public/           # Availability calendar
+│   │   ├── booking.model.js
+│   │   └── booking.validator.js
+│   ├── dashboard/            # Monthly summary (hall_owner / super_admin)
 │   ├── halls/
 │   │   ├── admin/            # Admin hall CRUD
 │   │   ├── public/           # Public hall read
-│   │   ├── hallModel.js
-│   │   └── hallValidator.js
+│   │   ├── hall.model.js
+│   │   └── hall.validator.js
 │   ├── upload/               # Cloudinary upload/delete
 │   └── users/                # User profile
 └── utils/                    # ApiError, cloudinary, encryption, email, logger, tokens

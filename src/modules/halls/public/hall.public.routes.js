@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 const { publicHallQuerySchema, hallIdSchema } = require('../hall.validator');
-const { hallSearchLimiter } = require('../../../middlewares/rateLimiterMiddleware');
-const { validate } = require('../../../middlewares/validateMiddleware');
-const asyncHandlerMiddleware = require('../../../middlewares/asyncHandlerMiddleware');
+const { hallSearchLimiter } = require('../../../middlewares/rateLimiter.middleware');
+const { validate } = require('../../../middlewares/validate.middleware');
+const asyncHandlerMiddleware = require('../../../middlewares/asyncHandler.middleware');
 const { getAllHalls, getHallById } = require('./hall.public.controller');
 
 router.get('/', hallSearchLimiter, validate(publicHallQuerySchema, 'query'), asyncHandlerMiddleware(getAllHalls));

@@ -1,4 +1,4 @@
-const User = require('../users/userModel');
+const User = require('../users/user.model');
 const ApiError = require('../../utils/apiError');
 const sendToken = require('../../utils/sendToken');
 const sendEmail = require('../../utils/sendEmail');

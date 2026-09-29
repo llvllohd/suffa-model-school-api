@@ -4,21 +4,21 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
 
-const httpLogger = require('./middlewares/httpLoggerMiddleware');
+const httpLogger = require('./middlewares/httpLogger.middleware');
 // const requestIdHeader = require('./middlewares/requestIdHeader');
-const errorHandler = require('./middlewares/errorMiddleware');
+const errorHandler = require('./middlewares/error.middleware');
 const ApiError = require('./utils/apiError');
 
 // Routes imports
-const authRoutes = require('./modules/auth/authRoutes');
-const userRoutes = require('./modules/users/userRoutes');
+const authRoutes = require('./modules/auth/auth.routes');
+const userRoutes = require('./modules/users/user.routes');
 
 const publicHallRoutes = require('./modules/halls/public/hall.public.routes');
 const pubicBookingRoutes = require('./modules/bookings/public/booking.public.routes');
 
 const adminDasboardRoutes = require('./modules/dashboard/dashboard.routes');
 const adminHallRoutes = require('./modules/halls/admin/hall.admin.routes');
-const uploadRoutes = require('./modules/upload/uploadRoutes');
+const uploadRoutes = require('./modules/upload/upload.routes');
 const adminBookingRoutes = require('./modules/bookings/admin/booking.admin.routes');
 
 const app = express();

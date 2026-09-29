@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const { validate } = require('../../middlewares/validateMiddleware');
-const { isAuthenticatedUser, authorizedRole } = require('../../middlewares/authMiddleware');
+const { validate } = require('../../middlewares/validate.middleware');
+const { isAuthenticatedUser, authorizedRole } = require('../../middlewares/auth.middleware');
 const { getDashboardSummary } = require('./dashboard.controller');
 const { dashboardQuerySchema } = require('./dashboard.validator');
 

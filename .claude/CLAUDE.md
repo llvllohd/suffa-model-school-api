@@ -15,22 +15,29 @@ src/
 ├── config/
 │   └── db.js               # Mongoose connection
 ├── middlewares/
-│   ├── authMiddleware.js           # JWT verification, role guard (isAuthenticatedUser, authorizedRole)
-│   ├── asyncHandlerMiddleware.js   # Wraps async route handlers, forwards errors
-│   ├── decryptPasswordMiddleware.js # AES decrypt password from client before validation
-│   ├── errorMiddleware.js          # Global error handler
-│   ├── httpLoggerMiddleware.js     # pino-http request logger
-│   ├── rateLimiterMiddleware.js    # express-rate-limit configs per route group
-│   ├── requestIdMiddleware.js      # Attaches UUID to req.id
-│   └── validateMiddleware.js       # Joi schema validation (body/query/params)
+│   ├── apiKey.middleware.js          # X-API-Key header guard (skips /health)
+│   ├── auth.middleware.js            # JWT verification, role guard (isAuthenticatedUser, authorizedRole)
+│   ├── asyncHandler.middleware.js    # Wraps async route handlers, forwards errors
+│   ├── decryptPassword.middleware.js # AES decrypt password from client before validation
+│   ├── error.middleware.js           # Global error handler
+│   ├── httpLogger.middleware.js      # pino-http request logger
+│   ├── rateLimiter.middleware.js     # express-rate-limit configs per route group
+│   ├── requestId.middleware.js       # Attaches UUID to req.id
+│   └── validate.middleware.js        # Joi schema validation (body/query/params)
 ├── modules/
 │   ├── auth/               # Register, Login, Logout, Forgot/Reset Password, Refresh Token
+│   ├── bookings/
+│   │   ├── admin/          # Hall owner / super_admin booking CRUD + availability
+│   │   ├── public/         # Public availability query
+│   │   ├── booking.model.js
+│   │   └── booking.validator.js
+│   ├── dashboard/          # Monthly summary for hall_owner / super_admin
 │   ├── halls/
 │   │   ├── admin/          # Admin CRUD for halls (auth-gated, role: admin)
 │   │   ├── public/         # Public read-only hall listing and detail
-│   │   ├── hallModel.js    # Mongoose Hall schema
-│   │   ├── hallValidator.js
-│   │   └── hallConstants.js
+│   │   ├── hall.model.js
+│   │   ├── hall.validator.js
+│   │   └── hall.constants.js
 │   ├── upload/             # Cloudinary image upload/delete (admin only)
 │   └── users/              # Get current user profile, update password
 └── utils/
@@ -59,26 +66,37 @@ All routes are prefixed `/api/v1`.
 | GET | `/users/me` | user | Get own profile |
 | GET | `/halls` | - | List halls (public, paginated, filterable) |
 | GET | `/halls/:id` | - | Get single hall (public) |
-| POST | `/admin/halls` | admin | Create hall |
-| GET | `/admin/halls` | admin | List all halls (includes inactive) |
-| GET | `/admin/halls/:id` | admin | Get hall by ID |
-| PATCH | `/admin/halls/:id` | admin | Update hall |
-| DELETE | `/admin/halls/:id` | admin | Delete hall |
-| POST | `/admin/upload/images` | admin | Upload images to Cloudinary |
-| DELETE | `/admin/upload/images` | admin | Delete image from Cloudinary |
+| GET | `/bookings/availability/:hallId` | - | Get booked/blocked dates for a hall (month query) |
+| POST | `/admin/halls` | hall_owner, super_admin | Create hall |
+| GET | `/admin/halls` | hall_owner, super_admin | List all halls (includes inactive) |
+| GET | `/admin/halls/:id` | hall_owner, super_admin | Get hall by ID |
+| PATCH | `/admin/halls/:id` | hall_owner, super_admin | Update hall |
+| DELETE | `/admin/halls/:id` | hall_owner, super_admin | Delete hall |
+| PATCH | `/admin/halls/:id/verify` | super_admin | Verify a hall |
+| POST | `/admin/halls/:id/restore` | super_admin | Restore a soft-deleted hall |
+| POST | `/admin/upload/images` | hall_owner, super_admin | Upload images to Cloudinary |
+| DELETE | `/admin/upload/images` | hall_owner, super_admin | Delete image from Cloudinary |
+| GET | `/admin/bookings/availability/:hallId` | hall_owner, super_admin | Availability with full booking detail |
+| GET | `/admin/bookings` | hall_owner, super_admin | List bookings (filter by hall) |
+| POST | `/admin/bookings` | hall_owner, super_admin | Create booking or blocked date |
+| PATCH | `/admin/bookings/:id` | hall_owner, super_admin | Update booking |
+| DELETE | `/admin/bookings/:id` | hall_owner, super_admin | Delete booking |
+| GET | `/admin/dashboard` | hall_owner, super_admin | Monthly summary (bookings, revenue, availability) |
 
 ## Data Models
 
-**User** — roles: `user`, `hall_owner`, `admin`. Auth source types: `normal`, `google`, `phone`. Stores hashed password (bcrypt, 12 rounds), login attempt locking, reset password token (sha256), and OTP.
+**User** — roles: `user`, `hall_owner`, `admin`, `super_admin`. Auth source types: `normal`, `google`, `phone`. Stores hashed password (bcrypt, 12 rounds), login attempt locking, reset password token (sha256), and OTP.
 
 **Hall** — location restricted to cities: `Bhatkal`, `Murdeshwar`, `Honavar`, `Kumta`. Amenity enum enforced at schema level. Images stored as Cloudinary URLs (1–10 images). Unique index on `(name, location.city)`. Soft-delete via `isActive` flag.
 
+**Booking** — types: `booked` (customer booking with payment tracking) or `blocked` (date block, no customer fields). Fields for `booked`: `customerName`, `customerPhone`, `totalAmount`, `paidAmount`, `remainingAmount` (auto-computed), `paymentStatus` (auto-computed: `pending`/`partial`/`paid`). `endDate` defaults to `startDate` if omitted. Dates normalized to UTC midnight. Indexed on `(hall, startDate, endDate)` and `(owner, startDate)`.
+
 ## Key Conventions
 
-- **Error handling**: throw `new ApiError(message, statusCode)` inside route handlers; `asyncHandlerMiddleware` forwards to global error handler.
+- **Error handling**: throw `new ApiError(message, statusCode)` inside route handlers; `asyncHandler.middleware` forwards to global error handler.
 - **Validation**: Joi schemas live in `*Validator.js` beside the route file. Validate with `validate(schema, target)` where target is `'body'` (default), `'query'`, or `'params'`.
-- **Auth guard**: apply `isAuthenticatedUser` then `authorizedRole('admin')` — or use `router.use(...)` at the top of admin routers (DRY pattern already established).
-- **Password flow**: client sends AES-encrypted password; `decryptPasswordMiddleware` decrypts before Joi validation runs.
+- **Auth guard**: apply `isAuthenticatedUser` then `authorizedRole('admin')` — or use `router.use(...)` at the top of admin routers (DRY pattern already established). Booking and dashboard routes use `authorizedRole('hall_owner', 'super_admin')`.
+- **Password flow**: client sends AES-encrypted password; `decryptPassword.middleware` decrypts before Joi validation runs.
 - **Tokens**: short-lived access token (default 15m) + long-lived refresh token (default 7d) set as HttpOnly cookies via `sendToken`.
 - **Logging**: use the pino `logger` instance from `utils/logger.js` — never `console.log` in production paths.
 - **File uploads**: `express-fileupload` with `useTempFiles: true`; files land in `/tmp/` before Cloudinary upload. 5MB limit enforced.
@@ -102,6 +120,7 @@ CLOUDINARY_API_KEY
 CLOUDINARY_API_SECRET
 CLOUDINARY_FOLDER_NAME
 ENCRYPTION_SECRET       # AES key for password encryption
+API_KEY                 # X-API-Key header value required on all non-health routes
 PASSWORD_EXPIRE         # minutes, default 10
 OTP_EXPIRE              # minutes, default 10
 LOGIN_MAX_ATTEMPTS      # default 5

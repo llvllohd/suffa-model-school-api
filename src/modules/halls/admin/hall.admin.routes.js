@@ -3,9 +3,9 @@ const router = express.Router();
 
 const { createHall, updateHall, deleteHall, getAllHallsAdmin, getHallByIdAdmin, restoreHall, verifyHall } = require('./hall.admin.controller');
 const { addHallValidationSchema, updateHallValidationSchema, hallIdSchema, adminHallQuerySchema } = require('../hall.validator');
-const { validate } = require('../../../middlewares/validateMiddleware');
-const { isAuthenticatedUser, authorizedRole } = require('../../../middlewares/authMiddleware');
-const asyncHandlerMiddleware = require('../../../middlewares/asyncHandlerMiddleware');
+const { validate } = require('../../../middlewares/validate.middleware');
+const { isAuthenticatedUser, authorizedRole } = require('../../../middlewares/auth.middleware');
+const asyncHandlerMiddleware = require('../../../middlewares/asyncHandler.middleware');
 
 router.use(isAuthenticatedUser, authorizedRole('hall_owner', 'super_admin')); // DRY
 

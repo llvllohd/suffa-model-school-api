@@ -1,9 +1,9 @@
 const router = require('express').Router();
-const { validate } = require('../../../middlewares/validateMiddleware');
-const { authorizedRole, isAuthenticatedUser } = require('../../../middlewares/authMiddleware');
+const { validate } = require('../../../middlewares/validate.middleware');
+const { authorizedRole, isAuthenticatedUser } = require('../../../middlewares/auth.middleware');
 const { availabilityQuerySchema, createBookingSchema, updateBookingSchema, hallQuerySchema, bookingIdSchema, hallIdSchema } = require('../booking.validator');
 const { getAvailabilityAdmin, getAllBookings, createBooking, updateBooking, deleteBooking } = require('./booking.admin.controller');
-const asyncHandlerMiddleware = require('../../../middlewares/asyncHandlerMiddleware');
+const asyncHandlerMiddleware = require('../../../middlewares/asyncHandler.middleware');
 
 router.use(isAuthenticatedUser, authorizedRole('hall_owner', 'super_admin')); // DRY
 

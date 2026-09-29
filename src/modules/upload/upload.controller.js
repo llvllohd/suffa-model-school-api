@@ -1,8 +1,8 @@
-const asyncHandlerMiddleware = require('../../middlewares/asyncHandlerMiddleware');
+const asyncHandlerMiddleware = require('../../middlewares/asyncHandler.middleware');
 const ApiError = require('../../utils/apiError');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../../utils/cloudinary');
 const hallModel = require('../halls/hall.model');
-const { MAXIMUM_IMAGE_UPLOADS } = require('./uploadConstants');
+const { MAXIMUM_IMAGE_UPLOADS } = require('./upload.constants');
 
 // Upload image(s)
 exports.uploadImages = asyncHandlerMiddleware(async (req, res, next) => {

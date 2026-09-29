@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 
-const { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, refreshToken } = require('./authController');
-const { updatePassword } = require('../users/userController');
-const { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordParamsSchema, resetPasswordSchema, updatePasswordSchema } = require('./authValidator');
-const { validate } = require('../../middlewares/validateMiddleware');
-const { isAuthenticatedUser } = require('../../middlewares/authMiddleware');
-const { authLimiter, forgotPasswordLimiter, refreshLimiter } = require('../../middlewares/rateLimiterMiddleware');
-const asyncHandlerMiddleware = require('../../middlewares/asyncHandlerMiddleware');
+const { registerUser, loginUser, logoutUser, forgotPassword, resetPassword, refreshToken } = require('./auth.controller');
+const { updatePassword } = require('../users/user.controller');
+const { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordParamsSchema, resetPasswordSchema, updatePasswordSchema } = require('./auth.validator');
+const { validate } = require('../../middlewares/validate.middleware');
+const { isAuthenticatedUser } = require('../../middlewares/auth.middleware');
+const { authLimiter, forgotPasswordLimiter, refreshLimiter } = require('../../middlewares/rateLimiter.middleware');
+const asyncHandlerMiddleware = require('../../middlewares/asyncHandler.middleware');
 
 router.post('/register', authLimiter, validate(registerSchema), asyncHandlerMiddleware(registerUser));
 router.post('/login', authLimiter, validate(loginSchema), asyncHandlerMiddleware(loginUser));

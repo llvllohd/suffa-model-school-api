@@ -1,6 +1,6 @@
 const Joi = require('joi');
 const { ALLOWED_SORT } = require('./hall.constants');
-const { MAXIMUM_IMAGE_UPLOADS } = require('../upload/uploadConstants');
+const { MAXIMUM_IMAGE_UPLOADS } = require('../upload/upload.constants');
 
 const phoneCleaner = (value, helpers) => {
   if (!value) return helpers.error('any.required');

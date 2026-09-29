@@ -1,5 +1,5 @@
-const catchAsyncErrors = require('./catchAsyncErrors');
-const ApiError = require('../utils/ApiError');
+const catchAsyncErrors = require('./asyncHandler.middleware');
+const ApiError = require('../utils/apiError');
 
 exports.isApiKey = catchAsyncErrors(async (req, res, next) => {
   // skip for health check
