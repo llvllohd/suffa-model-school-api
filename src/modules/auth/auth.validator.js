@@ -94,6 +94,38 @@ exports.resetPasswordSchema = Joi.object({
   }),
 }).unknown(false);
 
+exports.verifyOtpSchema = Joi.object({
+  email: Joi.string().trim().lowercase().email().required().messages({
+    'any.required': 'Invalid email',
+    'string.empty': 'Invalid email',
+    'string.email': 'Invalid email',
+  }),
+  otp: Joi.string().trim().length(6).pattern(/^\d{6}$/).required().messages({
+    'any.required': 'OTP is required',
+    'string.empty': 'OTP is required',
+    'string.length': 'Invalid OTP',
+    'string.pattern.base': 'Invalid OTP',
+  }),
+}).unknown(false);
+
+exports.resetPasswordWithOtpSchema = Joi.object({
+  otpSessionToken: Joi.string().trim().required().messages({
+    'any.required': 'Session token is required',
+    'string.empty': 'Session token is required',
+  }),
+  password: Joi.string().min(8).max(128).required().messages({
+    'any.required': 'Password is required',
+    'string.empty': 'Password is required',
+    'string.min': 'Password should have at least 8 characters',
+    'string.max': 'Password must be less than 128 characters',
+  }),
+  confirmPassword: Joi.string().required().valid(Joi.ref('password')).messages({
+    'any.required': 'Passwords do not match',
+    'string.empty': 'Passwords do not match',
+    'any.only': 'Passwords do not match',
+  }),
+}).unknown(false);
+
 exports.updatePasswordSchema = Joi.object({
   oldPassword: Joi.string().required().messages({ 'any.required': 'Old password is required', 'string.empty': 'Old password is required' }),
   newPassword: Joi.string().min(8).max(128).required().invalid(Joi.ref('oldPassword')).messages({
