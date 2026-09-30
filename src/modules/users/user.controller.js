@@ -18,5 +18,5 @@ exports.updatePassword = async (req, res, next) => {
   user.password = req.body.newPassword;
   user.refreshTokenVersion = (user.refreshTokenVersion || 0) + 1;
   await user.save();
-  sendToken(user, 200, res);
+  sendToken(user, 200, res, 'Password updated successfully');
 };
