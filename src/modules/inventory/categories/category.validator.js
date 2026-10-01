@@ -8,12 +8,6 @@ const createCategorySchema = Joi.object({
     'string.min': 'Category must be at least 2 chars',
     'string.max': 'Category cannot exceed 30 chars',
   }),
-  type: Joi.string().valid('INCOME', 'EXPENSE').required().messages({
-    'any.required': 'Type is required',
-    'string.base': 'Type must be text',
-    'string.empty': 'Type cannot be empty',
-    'any.only': 'Type must be INCOME or EXPENSE',
-  }),
   icon: Joi.string().trim().max(50).optional().allow('', null).messages({
     'string.base': 'Icon must be text',
     'string.empty': 'Icon cannot be empty',
@@ -58,7 +52,6 @@ const updateCategorySchema = Joi.object({
       'string.empty': 'Color cannot be empty',
       'string.pattern.base': 'Color must be a valid hex code like #10B981',
     }),
-  type: Joi.forbidden().messages({ 'any.unknown': 'Type cannot be changed' }),
   owner: Joi.forbidden().messages({ 'any.unknown': 'Owner cannot be changed' }),
   _id: Joi.forbidden(),
   __v: Joi.forbidden(),
@@ -77,17 +70,8 @@ const categoryIdSchema = Joi.object({
   }),
 }).unknown(false);
 
-const categoryQuerySchema = Joi.object({
-  type: Joi.string().valid('INCOME', 'EXPENSE').optional().messages({
-    'string.base': 'Type must be text',
-    'string.empty': 'Type cannot be empty',
-    'any.only': 'Type must be INCOME or EXPENSE',
-  }),
-}).unknown(false);
-
 module.exports = {
   createCategorySchema,
   updateCategorySchema,
   categoryIdSchema,
-  categoryQuerySchema,
 };

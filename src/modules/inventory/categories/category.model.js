@@ -10,14 +10,6 @@ const categorySchema = new mongoose.Schema(
       maxlength: [30, 'Category name cannot exceed 30 characters'],
       set: (v) => v?.trim().toLowerCase(),
     },
-    type: {
-      type: String,
-      required: [true, 'Category type is required'],
-      enum: {
-        values: ['INCOME', 'EXPENSE'],
-        message: 'Type must be either INCOME or EXPENSE',
-      },
-    },
     icon: {
       type: String,
       trim: true,
@@ -44,8 +36,7 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-categorySchema.index({ owner: 1, name: 1, type: 1 }, { unique: true });
-categorySchema.index({ owner: 1, type: 1 });
+categorySchema.index({ owner: 1, name: 1 }, { unique: true });
 
 categorySchema.pre('findOneAndUpdate', function (next) {
   const update = this.getUpdate() || {};

@@ -8,9 +8,6 @@ const createTransaction = async (req, res, next) => {
 
   const categoryDoc = await Category.findOne({ _id: category, owner: req.user._id }).lean();
   if (!categoryDoc) return next(new ApiError('Category not found', 404));
-  if (categoryDoc.type !== type) {
-    return next(new ApiError(`Category type mismatch. Category is ${categoryDoc.type}`, 400));
-  }
 
   const transaction = await Transaction.create({
     amount,
@@ -22,7 +19,7 @@ const createTransaction = async (req, res, next) => {
     owner: req.user._id,
   });
 
-  const populated = await transaction.populate('category', 'name type icon color');
+  const populated = await transaction.populate('category', 'name icon color');
   res.status(201).json({ success: true, message: 'Transaction created', data: populated });
 };
 
@@ -44,7 +41,7 @@ const getTransactions = async (req, res) => {
       page,
       limit,
       sort: { date: -1 },
-      populate: { path: 'category', select: 'name type icon color' },
+      populate: { path: 'category', select: 'name icon color' },
     }),
     Transaction.aggregate([{ $match: filter }, { $group: { _id: '$type', total: { $sum: '$amount' } } }]),
   ]);
@@ -72,19 +69,15 @@ const updateTransaction = async (req, res, next) => {
   const existing = await Transaction.findOne({ _id: id, owner: req.user._id });
   if (!existing) return next(new ApiError('Transaction not found', 404));
 
-  // 2. If changing category, validate type match
   if (req.body.category) {
     const categoryDoc = await Category.findOne({ _id: req.body.category, owner: req.user._id }).lean();
     if (!categoryDoc) return next(new ApiError('Category not found', 404));
-    if (categoryDoc.type !== existing.type) {
-      return next(new ApiError(`Cannot change to ${categoryDoc.type} category for ${existing.type} transaction`, 400));
-    }
   }
 
   const updated = await Transaction.findOneAndUpdate({ _id: id, owner: req.user._id }, req.body, {
     new: true,
     runValidators: true,
-  }).populate('category', 'name type icon color');
+  }).populate('category', 'name icon color');
 
   res.status(200).json({ success: true, message: 'Transaction updated', data: updated });
 };

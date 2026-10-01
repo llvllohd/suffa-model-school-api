@@ -2,16 +2,14 @@ const ApiError = require('../../../utils/apiError');
 const Category = require('./category.model');
 
 const createCategory = async (req, res, next) => {
-  const { name, type, icon, color } = req.body;
+  const { name, icon, color } = req.body;
   const exists = await Category.findOne({
     owner: req.user._id,
     name: name.trim().toLowerCase(),
-    type,
   });
-  if (exists) return next(new ApiError('Category already exists for this type', 409));
+  if (exists) return next(new ApiError('Category already exists', 409));
   const category = await Category.create({
     name,
-    type,
     icon,
     color,
     owner: req.user._id,
@@ -22,7 +20,6 @@ const createCategory = async (req, res, next) => {
 
 const getCategories = async (req, res) => {
   const filter = { owner: req.user._id };
-  if (req.query.type) filter.type = req.query.type;
   const categories = await Category.find(filter).sort({ createdAt: -1 });
   res.status(200).json({ success: true, data: categories });
 };
