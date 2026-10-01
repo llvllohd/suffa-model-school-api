@@ -11,7 +11,7 @@ exports.validate =
     });
 
     if (error) {
-      const message = error.details.map((d) => d.message).join(', ');
+      const message = error.details.map((d) => d.message.replace(/"/g, '')).join(', ');
       return next(new ApiError(message, 400));
     }
 

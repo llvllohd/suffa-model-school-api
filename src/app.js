@@ -1,90 +1,113 @@
 const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const fileUpload = require('express-fileupload');
+const helmet = require('helmet'); // Security headers (XSS, Clickjacking protection)
+const cors = require('cors'); // Cross-Origin Resource Sharing
+const cookieParser = require('cookie-parser'); // Parse cookies for JWT refresh token
+const fileUpload = require('express-fileupload'); // Handle image uploads for halls
+const mongoSanitize = require('express-mongo-sanitize'); // Prevent NoSQL injection
+const xss = require('xss-clean'); // Prevent XSS attacks
+const hpp = require('hpp'); // Prevent HTTP Parameter Pollution
 
-const httpLogger = require('./middlewares/httpLogger.middleware');
-// const requestIdHeader = require('./middlewares/requestIdHeader');
-const errorHandler = require('./middlewares/error.middleware');
-const ApiError = require('./utils/apiError');
+const httpLogger = require('./middlewares/httpLogger.middleware'); // Logs every request with requestId
+const errorHandler = require('./middlewares/error.middleware'); // Global error handler
+const ApiError = require('./utils/apiError'); // Custom error class
 
-// Routes imports
+// ==================== ROUTE IMPORTS ====================
+// Public routes - no auth needed (customer facing)
 const authRoutes = require('./modules/auth/auth.routes');
 const userRoutes = require('./modules/users/user.routes');
-
 const publicHallRoutes = require('./modules/halls/public/hall.public.routes');
-const pubicBookingRoutes = require('./modules/bookings/public/booking.public.routes');
+const publicBookingRoutes = require('./modules/bookings/public/booking.public.routes');
 
+// Admin routes - protected by hall_owner / super_admin role
 const adminDasboardRoutes = require('./modules/dashboard/dashboard.routes');
 const adminHallRoutes = require('./modules/halls/admin/hall.admin.routes');
 const uploadRoutes = require('./modules/upload/upload.routes');
 const adminBookingRoutes = require('./modules/bookings/admin/booking.admin.routes');
+const categoryRoutes = require('./modules/inventory/categories/category.routes');
+const transactionRoutes = require('./modules/inventory/transactions/transaction.routes');
 
 const app = express();
 
-app.set('query parser', 'extended');
-app.set('trust proxy', 1);
+// ==================== EXPRESS CONFIG ====================
+app.set('query parser', 'extended'); // Allows nested query parsing?filter[date]=2024
+app.set('trust proxy', 1); // Trust first proxy (needed for rate limiting on Vercel/Render/Nginx)
 
-// 1. Logger - FIRST, to log all requests with requestId
+// ==================== 1. LOGGER - FIRST MIDDLEWARE ====================
+// Logs method, URL, status, response time with unique requestId for debugging
 app.use(httpLogger);
 
-// 2. Security headers
+// ==================== 2. SECURITY HEADERS ====================
+// Sets 15+ security headers (X-DNS-Prefetch, X-Frame-Options, etc)
 app.use(helmet());
 
-// 3. CORS - BEFORE body parsers & file upload
+// ==================== 3. CORS ====================
+// Only allow your frontend to call API, with credentials (cookies)
 app.use(
   cors({
     origin: process.env.LOCALHOST || process.env.FRONTEND_URL,
-    credentials: true,
+    credentials: true, // Allow cookies to be sent cross-origin
   }),
 );
 
-// 4. Body parsers
-app.use(cookieParser());
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+// ==================== 4. BODY PARSERS ====================
+app.use(cookieParser()); // Must before auth - reads refreshToken from cookie
+app.use(express.json({ limit: '100kb' })); // Limit prevents large payload DOS attack
+app.use(express.urlencoded({ extended: true, limit: '100kb' })); // For form-data
 
-// 5. File upload - AFTER parsers, AFTER cors
+// ==================== 5. DATA SANITIZATION ====================
+// Example: { "email": { "$gt": "" } } => sanitized to { "email": "" } (blocks NoSQL injection)
+app.use(mongoSanitize());
+// Example: <script>alert(1)</script> => &lt;script&gt; (blocks XSS)
+app.use(xss());
+// Example:?sort=price&sort=name => only last value taken (blocks HPP)
+app.use(hpp());
+
+// ==================== 6. FILE UPLOAD ====================
 app.use(
   fileUpload({
-    useTempFiles: true,
-    tempFileDir: '/tmp/',
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    abortOnLimit: true,
+    useTempFiles: true, // Saves file to /tmp/ first, not RAM (prevents memory overload)
+    tempFileDir: '/tmp/', // Temp directory
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max - prevents large file DOS
+    abortOnLimit: true, // Immediately abort if exceeds limit
   }),
 );
 
-// 6. Health check & API Routes
+// ==================== 7. HEALTH CHECK ====================
+// Used by Render/Vercel/UptimeRobot to check if server is alive
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: `${process.env.APP_NAME} is running`,
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    requestId: req.id,
+    uptime: process.uptime(), // How long server running
+    requestId: req.id, // For tracing logs
   });
 });
 
-// 7. Routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/users', userRoutes);
+// ==================== 8. API ROUTES ====================
+// --- Public Routes ---
+app.use('/api/v1/auth', authRoutes); // /register, /login, /forgot-password (has own rate limiters)
+app.use('/api/v1/users', userRoutes); // /me, /update profile
+app.use('/api/v1/halls', publicHallRoutes); // Customer sees available halls
+app.use('/api/v1/bookings', publicBookingRoutes); // Customer creates booking
 
-app.use('/api/v1/halls', publicHallRoutes);
-app.use('/api/v1/bookings', pubicBookingRoutes);
+// --- Admin Routes (protected: isAuthenticatedUser + authorizedRole('hall_owner','super_admin')) ---
+app.use('/api/v1/admin/dashboard', adminDasboardRoutes); // Revenue stats
+app.use('/api/v1/admin/halls', adminHallRoutes); // CRUD halls
+app.use('/api/v1/admin/upload', uploadRoutes); // Upload hall images
+app.use('/api/v1/admin/bookings', adminBookingRoutes); // Manage bookings
+app.use('/api/v1/admin/categories', categoryRoutes); // Income/Expense categories
+app.use('/api/v1/admin/transactions', transactionRoutes); // Track money flow
 
-app.use('/api/v1/admin/dashboard', adminDasboardRoutes);
-app.use('/api/v1/admin/halls', adminHallRoutes);
-app.use('/api/v1/admin/upload', uploadRoutes);
-app.use('/api/v1/admin/bookings', adminBookingRoutes);
-
-// 8. Unknown route catcher
+// ==================== 9. UNKNOWN ROUTE HANDLER ====================
+// If no route matched above, throw 404 (must be after all routes)
 app.all('*', (req, res, next) => {
-  const message = `Route ${req.originalUrl} not found`;
-  next(new ApiError(message, 404));
+  next(new ApiError(`Route ${req.originalUrl} not found`, 404));
 });
 
-// 9. Global Error Handler - must be last
+// ==================== 10. GLOBAL ERROR HANDLER ====================
+// Catches all errors thrown via next(err) - MUST be last middleware
+// Handles: ApiError, Mongoose validation, JWT errors, Multer errors
 app.use(errorHandler);
 
 module.exports = app;
