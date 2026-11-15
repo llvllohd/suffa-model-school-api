@@ -1,20 +1,25 @@
-const ApiError = require('../utils/apiError');
+const ApiError = require('@/utils/apiError');
 
-exports.validate =
+const validate =
   (schema, property = 'body') =>
   (req, res, next) => {
     const dataToValidate = req[property];
+    const result = schema.safeParse(dataToValidate);
+    if (!result.success) {
+      const message = result.error.issues
+        .map((issue) => {
+          if (issue.code === 'unrecognized_keys') {
+            const keys = issue.keys?.join(', ') || 'Unknown field';
+            return `Unknown field(s): ${keys} not allowed`;
+          }
+          return issue.message || `Invalid ${issue.path?.join('.') || 'input'}`;
+        })
+        .join(', ');
 
-    const { error, value } = schema.validate(dataToValidate, {
-      abortEarly: true,
-      stripUnknown: true,
-    });
-
-    if (error) {
-      const message = error.details.map((d) => d.message.replace(/"/g, '')).join(', ');
-      return next(new ApiError(message, 400));
+      return next(new ApiError(message || 'Validation failed', 400));
     }
-
-    req[property] = value;
+    req[property] = result.data;
     next();
   };
+
+module.exports = { validate };

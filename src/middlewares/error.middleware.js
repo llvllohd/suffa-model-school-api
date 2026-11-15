@@ -9,6 +9,8 @@ const { getClearCookieOptions } = require('../utils/cookieOptions');
  */
 
 const errorHandler = (err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
   let error = err;
   error.message = err.message || 'Internal Server Error';
   error.statusCode = err.statusCode || 500;
@@ -22,8 +24,14 @@ const errorHandler = (err, req, res, next) => {
 
   // Duplicate key: email already exists - MongoDB code 11000
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
-    const userFacingFields = { email: 'email', phone: 'phone number', name: 'hall name' };
+    const field = Object.keys(err.keyValue || {})[0];
+    const userFacingFields = {
+      email: 'email',
+      phone: 'phone number',
+      name: 'name',
+      admissionNumber: 'admission number',
+      rollNo: 'roll number',
+    };
     const label = userFacingFields[field] || 'value';
     const message = `This ${label} is already in use. Please try another.`;
     error = new ApiError(message, 400);
@@ -39,35 +47,30 @@ const errorHandler = (err, req, res, next) => {
 
   // Document not found: findByIdAndUpdate with non-existing id
   if (err.name === 'DocumentNotFoundError') {
-    const message = `Resource not found`;
-    error = new ApiError(message, 404);
+    error = new ApiError('Resource not found', 404);
   }
 
   // Version conflict: two users updating same hall at same time
   if (err.name === 'VersionError') {
-    const message = 'Resource was busy. Please refresh and try again';
-    error = new ApiError(message, 409);
+    error = new ApiError('Resource was busy. Please refresh and try again', 409);
   }
 
   // ========== JWT ERRORS ==========
 
   // Token expired after 7d / Token tampered/invalid
   if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
-    // If this error came from refresh route, clear cookies
     if (req.path.includes('refresh-token')) {
       res.clearCookie('token', getClearCookieOptions());
       res.clearCookie('refreshToken', getClearCookieOptions());
     }
-    const message = 'Your session has timed out. Please login again.';
-    error = new ApiError(message, 401);
+    error = new ApiError('Your session has timed out. Please login again.', 401);
   }
 
   // ========== FILE UPLOAD ERRORS ==========
 
   // File size > 5MB limit
   if (err.code === 'LIMIT_FILE_SIZE') {
-    const message = 'File too large. Max 5MB allowed per image';
-    error = new ApiError(message, 400);
+    error = new ApiError('File too large. Max 5MB allowed per image', 400);
   }
 
   req.errorMessage = error.message;

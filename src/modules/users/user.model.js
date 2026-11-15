@@ -4,6 +4,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
+// Single source of truth - Must match auth.validator.js phoneSchema transform
+const normalizePhone = (phone) => {
+  if (!phone) return phone;
+  let p = phone.replace(/[\s-]/g, '');
+  if (p.startsWith('+91')) p = p.slice(3);
+  if (p.startsWith('91') && p.length === 12) p = p.slice(2);
+  return p;
+};
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -23,48 +32,32 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
+      required: [true, 'Phone is required - Phone is the Login ID'],
+      unique: true,
       trim: true,
       validate: {
         validator: function (v) {
-          if (!v) return true;
-          return validator.isMobilePhone(v, 'en-IN') || /^[6-9]\d{9}$/.test(v);
+          return validator.isMobilePhone(v, 'en-IN') || /^[6-9]\d{9}$/.test(v) || /^\+91[6-9]\d{9}$/.test(v);
         },
-        message: 'Please enter a valid phone number',
+        message: 'Please enter a valid Indian phone number',
       },
     },
     password: {
       type: String,
-      required: function () {
-        return this.sourceType === 'normal';
-      },
-      minlength: [8, 'Password should have atleast 8 characters'],
+      required: [true, 'Password is required'],
+      minlength: [6, 'Password should have atleast 6 characters'],
       maxlength: [128, 'Password must be less than 128 characters'],
       select: false,
     },
     avatar: {
-      public_id: {
-        type: String,
-        default: null,
-      },
-      url: {
-        type: String,
-        default: null,
-      },
+      public_id: { type: String, default: null },
+      url: { type: String, default: null },
     },
     role: {
       type: String,
-      enum: ['user', 'hall_owner', 'super_admin'],
-      default: 'user',
-      index: true,
+      enum: ['admin', 'teacher', 'student'],
+      default: 'student',
     },
-    sourceType: {
-      type: String,
-      enum: ['normal', 'google', 'phone'],
-      default: 'normal',
-      index: true,
-    },
-    googleId: { type: String, sparse: true, unique: true },
-    isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date },
     loginAttempts: { type: Number, default: 0, select: false },
@@ -75,13 +68,26 @@ const userSchema = new mongoose.Schema(
     resetPasswordOtpExpire: { type: Date, select: false },
     refreshTokenVersion: { type: Number, default: 0 },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
 
-userSchema.index({ role: 1, isActive: 1 }); // For admin listing hall_owners
+// ✅ FIXED: Only 2 indexes - unique: true above already creates phone/email indexes
+userSchema.index({ role: 1, isActive: 1 });
 userSchema.index({ createdAt: -1 });
 
-// Hash Password
+// Normalize phone before save
+userSchema.pre('save', function (next) {
+  if (this.isModified('phone') && this.phone) {
+    this.phone = normalizePhone(this.phone); // Always stored as 9876543210
+  }
+  next();
+});
+
+// Hash password
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();
   const salt = await bcrypt.genSalt(12);
@@ -89,28 +95,29 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Generate Token
+// Generate access token - 15m
 userSchema.methods.generateToken = function () {
   return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRATION || '15m', algorithm: 'HS256' });
 };
 
-// Generate Refresh Token
+// Generate refresh token - 7d
 userSchema.methods.generateRefreshToken = function () {
-  return jwt.sign({ id: this._id, role: this.role, version: this.refreshTokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d', algorithm: 'HS256' });
+  return jwt.sign({ id: this._id, role: this.role, version: this.refreshTokenVersion }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+    algorithm: 'HS256',
+  });
 };
 
-// Compare Password
+// Compare password
 userSchema.methods.comparePassword = function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
-// Generate Reset Password Token
+// Generate reset password token
 userSchema.methods.generateResetPasswordToken = function () {
-  //Generate Token Using Crypto
   const resetToken = crypto.randomBytes(32).toString('hex');
-  // Hash & Add Reset Password Token to UserShema
   this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  this.resetPasswordExpire = Date.now() + (parseInt(process.env.PASSWORD_EXPIRE) || 10) * 60 * 1000; // 10 minutes
+  this.resetPasswordExpire = Date.now() + (parseInt(process.env.PASSWORD_EXPIRE) || 10) * 60 * 1000;
   return resetToken;
 };
 
@@ -125,13 +132,12 @@ userSchema.methods.incrementLoginAttempts = async function () {
   const LOCK_MINUTES = parseInt(process.env.LOGIN_LOCK_MINUTES, 10) || 15;
 
   if (this.lockUntil && this.lockUntil < Date.now()) {
-    // lock expired, reset
     this.loginAttempts = 1;
     this.lockUntil = undefined;
   } else {
-    this.loginAttempts += 1;
+    this.loginAttempts = (this.loginAttempts || 0) + 1;
     if (this.loginAttempts >= MAX_ATTEMPTS && !this.isLocked) {
-      this.lockUntil = Date.now() + LOCK_MINUTES * 60 * 1000; // 15 min
+      this.lockUntil = Date.now() + LOCK_MINUTES * 60 * 1000;
     }
   }
   await this.save();
@@ -149,7 +155,7 @@ userSchema.methods.resetLoginAttempts = async function () {
 userSchema.methods.generateOTP = function () {
   const otp = crypto.randomInt(100000, 999999).toString();
   this.resetPasswordOtp = crypto.createHash('sha256').update(otp).digest('hex');
-  this.resetPasswordOtpExpire = Date.now() + (parseInt(process.env.OTP_EXPIRE) || 10) * 60 * 1000; // 10 minutes
+  this.resetPasswordOtpExpire = Date.now() + (parseInt(process.env.OTP_EXPIRE) || 10) * 60 * 1000;
   return otp;
 };
 

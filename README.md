@@ -130,7 +130,7 @@ Returns server status, uptime, and request ID.
 
 ```bash
 git clone <repo-url>
-cd halls-api
+cd suffah-model-school-api
 npm install
 ```
 
@@ -160,7 +160,7 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 CLOUDINARY_FOLDER_NAME=bhatkal-halls
 
-ENCRYPTION_SECRET=your_aes_secret
+PASSWORD_ENCRYPTION_KEY=your_aes_secret
 
 PASSWORD_EXPIRE=10
 OTP_EXPIRE=10
@@ -168,7 +168,7 @@ LOGIN_MAX_ATTEMPTS=5
 LOGIN_LOCK_MINUTES=15
 
 # Brevo (sib-api-v3-sdk)
-SENDINBLUE_API_KEY=your_brevo_key
+BREVO_API_KEY=your_brevo_key
 SMTP_MAIL=noreply@bhatkalhalls.com
 APP_NAME=BhatkalHalls
 ```

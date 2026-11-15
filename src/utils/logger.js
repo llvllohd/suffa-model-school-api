@@ -4,15 +4,28 @@ const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   // Don't print pid, hostname in prod - clean logs
   serializers: {
-    err: pino.stdSerializers.err, // <-- add this
+    err: pino.stdSerializers.err,
   },
   base: {
     env: process.env.NODE_ENV,
-    service: process.env.APP_NAME,
+    service: process.env.APP_NAME || 'SUFFAH MODEL SCHOOL API',
   },
-  // NEVER log passwords, tokens
+  // NEVER log passwords, tokens, OTP - School ke liye extra fields add kiye
   redact: {
-    paths: ['req.headers.authorization', 'req.body.password', 'req.body.confirmPassword', 'password', '*.password'],
+    paths: [
+      'req.headers.authorization',
+      'req.body.password',
+      'req.body.confirmPassword',
+      'req.body.newPassword',
+      'req.body.otp',
+      'req.body.resetToken',
+      'req.body.refreshToken',
+      'password',
+      '*.password',
+      '*.otp',
+      '*.token',
+      '*.refreshToken',
+    ],
     censor: '[REDACTED]',
   },
   // Pretty in dev, JSON in prod (for Datadog/CloudWatch)

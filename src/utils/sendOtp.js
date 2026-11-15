@@ -8,7 +8,7 @@ const template = handlebars.compile(emailTemplate);
 
 const sendOtp = async (options) => {
   const client = SibApiV3Sdk.ApiClient.instance;
-  client.authentications['api-key'].apiKey = process.env.SENDINBLUE_API_KEY;
+  client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
 
   const messageBody = template({
     APP_NAME: process.env.APP_NAME,

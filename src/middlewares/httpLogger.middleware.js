@@ -1,5 +1,5 @@
 const pinoHttp = require('pino-http');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const httpLogger = pinoHttp({
@@ -9,7 +9,7 @@ const httpLogger = pinoHttp({
   genReqId: (req) => {
     const incoming = req.headers['x-request-id'];
     const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return incoming && uuidV4Regex.test(incoming) ? incoming : uuidv4();
+    return incoming && uuidV4Regex.test(incoming) ? incoming : crypto.randomUUID();
   },
 
   // This stops full req/res dump
@@ -21,6 +21,7 @@ const httpLogger = pinoHttp({
 
   // Clean log line
   customLogLevel: (req, res) => {
+    if (res.statusCode >= 500) return 'error';
     if (res.statusCode >= 400) return 'warn';
     return 'info';
   },
