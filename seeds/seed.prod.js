@@ -14,15 +14,15 @@ const seedProd = async () => {
     // ⚠️ PROD - NO deleteMany() - NEVER wipes
 
     // 1. Admin - Only if not exists
-    // Change these 3 lines to real Principal details before running
+    // Change these 3 lines to real Admin details before running
     const ADMIN_PHONE = '9999999999';
-    const ADMIN_EMAIL = 'principal@suffa.com';
+    const ADMIN_EMAIL = 'admin@suffa.com';
     const ADMIN_PASSWORD = 'Admin@123';
 
     let admin = await User.findOne({ $or: [{ phone: ADMIN_PHONE }, { email: ADMIN_EMAIL }] });
     if (!admin) {
       admin = await User.create({
-        name: 'Principal',
+        name: 'Admin',
         email: ADMIN_EMAIL,
         phone: ADMIN_PHONE,
         password: ADMIN_PASSWORD,

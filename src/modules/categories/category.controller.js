@@ -1,31 +1,50 @@
 const Category = require('./category.model');
 const ApiError = require('@/utils/apiError');
+const ApiResponse = require('@/utils/apiResponse');
 
-// POST /api/categories - Admin Only
+// POST /api/v1/categories - Admin Only
 exports.createCategory = async (req, res, next) => {
-  const category = await Category.create(req.body);
-  res.status(201).json({ success: true, data: category });
+  const { name } = req.body; // ✅ Whitelist - Model has only name + isActive
+  // ✅ No duplicate check - Model index throws 11000 -> errorHandler -> 409
+  const category = await Category.create({ name });
+  return ApiResponse.send(res, 201, { category }, 'Category created successfully');
 };
 
-// GET /api/categories
+// GET /api/v1/categories - All logged-in users
 exports.getCategories = async (req, res, next) => {
-  const categories = await Category.find({ isActive: true }).sort({ name: 1 });
-  res.json({ success: true, data: categories });
+  const categories = await Category.find({ isActive: true }).sort({ name: 1 }).lean();
+  return ApiResponse.send(res, 200, { categories }, 'Categories fetched successfully');
 };
 
-// PUT /api/categories/:id
+// GET /api/v1/categories/:id
+exports.getCategoryById = async (req, res, next) => {
+  const category = await Category.findById(req.params.id).lean();
+  if (!category || !category.isActive) {
+    return next(new ApiError('Category not found', 404));
+  }
+  return ApiResponse.send(res, 200, { category }, 'Category fetched successfully');
+};
+
+// PUT /api/v1/categories/:id - Admin Only
 exports.updateCategory = async (req, res, next) => {
-  const category = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const { name } = req.body; // ✅ isActive NOT allowed here
+  const category = await Category.findOne({ _id: req.params.id, isActive: true });
   if (!category) return next(new ApiError('Category not found', 404));
-  res.json({ success: true, data: category });
+
+  category.name = name;
+  await category.save(); // ✅ runValidators via save, duplicate -> 11000 -> 409
+  return ApiResponse.send(res, 200, { category }, 'Category updated successfully');
 };
 
-// DELETE /api/categories/:id - Soft Delete - Section 5A
+// DELETE /api/v1/categories/:id - Soft Delete - Admin Only
 exports.deleteCategory = async (req, res, next) => {
   const category = await Category.findById(req.params.id);
-  if (!category) return next(new ApiError('Category not found', 404));
+  if (!category || !category.isActive) {
+    // ✅ Already deleted = 404, not success
+    return next(new ApiError('Category not found', 404));
+  }
 
-  // USED check - Block if used anywhere - Add when Subjects / Assignments / Marks exist
+  // USED check - Add when Subjects / Assignments / Marks exist
   // const usedInSubject = await Subject.findOne({ 'defaultCategories.categoryId': category._id });
   // const usedInAssignment = await SubjectAssignment.findOne({ 'categoriesOverride.categoryId': category._id });
   // const usedInMarks = await MarkSheet.findOne({ 'marks.categoryId': category._id });
@@ -35,5 +54,5 @@ exports.deleteCategory = async (req, res, next) => {
 
   category.isActive = false;
   await category.save();
-  res.json({ success: true, message: 'Category deleted' });
+  return ApiResponse.send(res, 200, null, 'Category deleted successfully');
 };

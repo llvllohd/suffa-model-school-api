@@ -1,32 +1,29 @@
 const { z } = require('zod');
 
-const createCategorySchema = z
+// --- Helper - V4 - SAME as auth.validator.js + user.validator.js ---
+const reqString = (requiredMsg, typeMsg) =>
+  z.string({
+    error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
+  });
+
+const nameField = reqString('Category name is required', 'Category name must be a string')
+  .trim()
+  .min(1, 'Category name is required')
+  .min(2, 'Category name must be atleast 2 characters')
+  .max(50, 'Category name cannot exceed 50 characters');
+
+const createCategorySchema = z.object({ name: nameField }).strict();
+
+// ✅ No isActive - isActive changes ONLY via DELETE endpoint
+const updateCategorySchema = z.object({ name: nameField }).strict();
+
+const categoryParamsSchema = z
   .object({
-    name: z
-      .string({ required_error: 'Category name is required' })
+    id: reqString('Category id is required', 'Category id must be a string')
       .trim()
-      .min(2, 'Category name must be atleast 2 characters')
-      .max(50, 'Category name cannot exceed 50 characters'),
+      .min(1, 'Category id is required')
+      .regex(/^[0-9a-fA-F]{24}$/, 'Category id is invalid'),
   })
   .strict();
 
-const updateCategorySchema = z
-  .object({
-    name: z
-      .string({ required_error: 'Category name is required' })
-      .trim()
-      .min(2, 'Category name must be atleast 2 characters')
-      .max(50, 'Category name cannot exceed 50 characters')
-      .optional(),
-    isActive: z.boolean({ required_error: 'isActive is required' }).optional(),
-  })
-  .strict()
-  .refine((data) => data.name !== undefined || data.isActive !== undefined, {
-    message: 'At least one field (name or isActive) is required',
-    path: ['name'],
-  });
-
-module.exports = {
-  createCategorySchema,
-  updateCategorySchema,
-};
+module.exports = { createCategorySchema, updateCategorySchema, categoryParamsSchema };

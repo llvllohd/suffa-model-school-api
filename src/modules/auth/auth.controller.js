@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 
 const User = require('@/modules/users/user.model');
 const ApiError = require('@/utils/apiError');
+const ApiResponse = require('@/utils/apiResponse');
 const sendToken = require('@/utils/sendToken');
 const sendEmail = require('@/utils/sendEmail');
 const sendOtp = require('@/utils/sendOtp');
@@ -25,7 +26,7 @@ exports.loginUser = async (req, res, next) => {
     return next(new ApiError('Invalid phone or password.', 401));
   }
   await user.resetLoginAttempts();
-  sendToken(user, 200, res, 'Logged in successfully');
+  return sendToken(user, 200, res, 'Logged in successfully');
 };
 
 // Forgot Password - Reset Link
@@ -34,23 +35,14 @@ exports.forgotPassword = async (req, res, next) => {
   const user = await User.findOne({ email });
   if (!user) {
     // Same response whether user exists or not - prevents user enumeration
-    return res.status(200).json({
-      success: true,
-      message: 'An email has been sent successfully.',
-    });
+    return ApiResponse.send(res, 200, null, 'An email has been sent successfully.');
   }
   const resetToken = user.generateResetPasswordToken();
   await user.save({ validateBeforeSave: false });
   const resetPasswordUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
   try {
-    await sendEmail({
-      mail: user.email,
-      resetPasswordUrl,
-    });
-    res.status(200).json({
-      success: true,
-      message: 'An email has been sent successfully.',
-    });
+    await sendEmail({ mail: user.email, resetPasswordUrl });
+    return ApiResponse.send(res, 200, null, 'An email has been sent successfully.');
   } catch (error) {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -64,22 +56,13 @@ exports.forgotPasswordOtp = async (req, res, next) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
   if (!user) {
-    return res.status(200).json({
-      success: true,
-      message: 'An OTP has been sent successfully.',
-    });
+    return ApiResponse.send(res, 200, null, 'An OTP has been sent successfully.');
   }
   const otp = user.generateOTP();
   await user.save({ validateBeforeSave: false });
   try {
-    await sendOtp({
-      mail: user.email,
-      otp,
-    });
-    res.status(200).json({
-      success: true,
-      message: 'An OTP has been sent successfully.',
-    });
+    await sendOtp({ mail: user.email, otp });
+    return ApiResponse.send(res, 200, null, 'An OTP has been sent successfully.');
   } catch (error) {
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpire = undefined;
@@ -91,7 +74,7 @@ exports.forgotPasswordOtp = async (req, res, next) => {
 // Reset Password - Reset Link
 exports.resetPassword = async (req, res, next) => {
   const { token } = req.params;
-  const { password } = req.body; // Validated by Zod
+  const { password } = req.body;
   const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
   const user = await User.findOne({ resetPasswordToken, resetPasswordExpire: { $gt: Date.now() } });
   if (!user) return next(new ApiError('Your password reset link is invalid or has been expired.', 400));
@@ -103,8 +86,8 @@ exports.resetPassword = async (req, res, next) => {
   // Clear login lock as well - otherwise user stays locked even after reset
   user.loginAttempts = 0;
   user.lockUntil = undefined;
-  await user.save(); // Keep validations ON
-  sendToken(user, 200, res, 'Your password has been changed successfully');
+  await user.save();
+  return sendToken(user, 200, res, 'Your password has been changed successfully');
 };
 
 // Verify OTP
@@ -124,11 +107,7 @@ exports.verifyOtp = async (req, res, next) => {
     expiresIn: `${parseInt(process.env.OTP_EXPIRE, 10) || 10}m`,
     algorithm: 'HS256',
   });
-  res.status(200).json({
-    success: true,
-    message: 'OTP verified successfully.',
-    otpSessionToken,
-  });
+  return ApiResponse.send(res, 200, { otpSessionToken }, 'OTP verified successfully.');
 };
 
 // Reset Password with OTP Session Token
@@ -151,7 +130,7 @@ exports.resetPasswordWithOtp = async (req, res, next) => {
   user.loginAttempts = 0;
   user.lockUntil = undefined;
   await user.save();
-  sendToken(user, 200, res, 'Your password has been changed successfully');
+  return sendToken(user, 200, res, 'Your password has been changed successfully'); // ✅ return
 };
 
 // Refresh Token
@@ -174,10 +153,8 @@ exports.refreshToken = async (req, res, next) => {
     return next(new ApiError('Your session has timed out. Please login.', 401));
   }
   const token = user.generateToken();
-  res.status(200).cookie('token', token, getCookieOptionsForToken()).json({
-    success: true,
-    message: 'Token refreshed successfully',
-  });
+  res.cookie('token', token, getCookieOptionsForToken());
+  return ApiResponse.send(res, 200, null, 'Token refreshed successfully');
 };
 
 // Logout User
@@ -185,8 +162,5 @@ exports.logoutUser = async (req, res, next) => {
   await User.updateOne({ _id: req.user.id }, { $inc: { refreshTokenVersion: 1 } });
   res.clearCookie('token', getClearCookieOptions());
   res.clearCookie('refreshToken', getClearCookieOptions());
-  res.status(200).json({
-    success: true,
-    message: 'Logged out successfully.',
-  });
+  return ApiResponse.send(res, 200, null, 'Logged out successfully.');
 };

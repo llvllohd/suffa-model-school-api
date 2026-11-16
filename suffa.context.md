@@ -1,16 +1,17 @@
 ### 1. Final Stack - LOCKED
 Part | Tech
-**Frontend Framework** | Nuxt 4
-**State Management** | Pinia
-**Styling** | Tailwind CSS
-**PWA** | @vite-pwa/nuxt
-**Backend** | Express.js (Node.js)
-**Auth** | JWT Access Token (15m) + Refresh Token (7d) in HttpOnly Cookie
-**Password** | Bcrypt - genSalt(12)
-**Database** | MongoDB Atlas Free - M0 Tier - 512 MB
-*MongoDB Free Estimate:* 300 Students School = 17 MB / Year = Free 512 MB will last ~30 Years. 1000 Students = ~10 Years. No need for Paid DB now.
+_Frontend Framework_ | Nuxt 4
+_State Management_ | Pinia
+_Styling_ | Tailwind CSS
+_PWA_ | @vite-pwa/nuxt
+_Backend_ | Express.js (Node.js)
+_Auth_ | JWT Access Token (15m) + Refresh Token (7d) in HttpOnly Cookie
+_Password_ | Bcrypt - genSalt(12)
+_Validation_ | _Zod v4 - LOCKED ⭐ - For ALL Backend Validation_
+_Database_ | MongoDB Atlas Free - M0 Tier - 512 MB
+_MongoDB Free Estimate:_ 300 Students School = 17 MB / Year = Free 512 MB will last ∼30 Years. 1000 Students = ∼10 Years. No need for Paid DB now.
 
-*Architecture:*
+_Architecture:_
 suffa-pwa/ - Frontend - Nuxt 4 + Pinia + Tailwind + PWA
   app/
     pages/
@@ -21,7 +22,7 @@ suffa-api/ - Backend - Express + JWT (Cookie) + Refresh Token + Bcrypt + MongoDB
   models/ -> users, teachers, classes, sections, students, subjects, categories, subjectAssignments, markSheets, studentAttendance, teacherAttendance
   routes/ -> auth, users, assignments, marks, attendance
   middleware/ -> JWT check from Cookie
-*Auth Flow - Cookie + Refresh Token - LOCKED ⭐:*
+_Auth Flow - Cookie + Refresh Token - LOCKED ⭐:_
 1. User Login - Phone + Password
 2. Backend checks Password with Bcrypt + Checks `isLocked` / `loginAttempts`
 3. If correct, Backend sends 2 Tokens in HttpOnly Cookies:
@@ -33,7 +34,7 @@ suffa-api/ - Backend - Express + JWT (Cookie) + Refresh Token + Bcrypt + MongoDB
 7. Pinia stores only User Info - Name, Role, Logged In. Token is NEVER in Pinia / LocalStorage.
 8. On Logout, Backend clears BOTH Cookies + Increments `refreshTokenVersion` to kill old Refresh Tokens.
 
-*Setup Commands:*
+_Setup Commands:_
 # Frontend
 npx nuxi@latest init suffa-pwa
 cd suffa-pwa
@@ -42,32 +43,31 @@ npm run dev
 
 # Backend - Later
 npm init -y
-npm install express mongoose jsonwebtoken bcryptjs cookie-parser cors validator
+npm install express mongoose jsonwebtoken bcryptjs cookie-parser cors validator zod
 ---
 
 ### 1A. Auth Concept - CENTRAL USER - LOCKED ⭐
-*Rule:* 1 Person = 1 User Entry. Name, Phone, Password, Email will live ONLY in `users`. No other collection will have `name / phone / password / email`.
+_Rule:_ 1 Person = 1 User Entry. Name, Phone, Password, Email will live ONLY in `users`. No other collection will have `name / phone / password / email`.
 
-*Why?*
+_Why?_
 - Earlier `teachers` had name/phone and `students` also had name/phone - Duplicate data.
 - Now if name changes, it changes in only 1 place - `users`.
 - Admin, Teacher, Student - All 3 logins come from the same place.
 
-*How It Works:*
+_How It Works:_
 - Entry is created in `users` -> `role` tells who it is
 - If `role: teacher`, profile is created in `teachers` -> `userId -> users._id`
 - If `role: student`, profile is created in `students` -> `userId -> users._id`
 - If `role: admin`, NO separate profile is created. Admin lives only in `users`.
 - If name is needed, fetch it from `users` via `populate()`. Never store duplicate name.
 
-*Folder Split - LOCKED ⭐ - Matches Real Code:*
+_Folder Split - LOCKED ⭐ - Matches Real Code:_
 - `src/modules/auth/` = ONLY Login / Logout / JWT + Refresh logic. Files: `auth.controller.js`, `auth.routes.js`, `auth.validator.js`. NO model file here.
-- `src/modules/users/` = ONLY People Management. Files: `user.controller.js`, `user.model.js`, `user.routes.js`. Model lives HERE.
+- `src/modules/users/` = ONLY People Management. Files: `user.controller.js`, `user.model.js`, `user.routes.js`, `user.validator.js`. Model lives HERE.
 - `auth/` USES `User` model from `users/` folder: `const User = require('../users/user.model')`
 - Model Name = `User` - `mongoose.model('User', userSchema)`. All `ref` must be `'User'`, NEVER `'Auth'`. There is NO `Auth` model.
 
-*JWT Payload - LOCKED ⭐ - As Per Real File:*
-```js
+_JWT Payload - LOCKED ⭐ - As Per Real File:_
 // Access Token - 15m
 { id: users._id, role: "admin" / "teacher" / "student" }
 
@@ -97,6 +97,91 @@ _Login Security - LOCKED ⭐ - As Per Real File:_
 - Virtual `isLocked` - True if `lockUntil > Date.now()`
 - Methods: `incrementLoginAttempts()`, `resetLoginAttempts()` - On success, reset attempts + set `lastLogin`
 - Password Reset: `resetPasswordToken` (SHA256) + `resetPasswordExpire` (10 min) + OTP `resetPasswordOtp` (SHA256) + `resetPasswordOtpExpire` (10 min)
+
+### 1A.1. Central User + Profile Pattern - INDUSTRY STANDARD - LOCKED ⭐
+_Pattern Name:_ _Central User + Profile Pattern_ - Industry Standard - Used by Laravel / Django / Rails / Firebase / Supabase / Auth0 - `auth.users` for login + `profiles` table linked by `user_id`.
+_Rule:_ `users` = ONLY Login / Auth - `name`, `phone`, `email`, `password`, `role`, `isActive`, `loginAttempts`, `refreshTokenVersion`. `teachers` / `students` = ONLY Profile - Extra fields like `qualification`, `rollNo`, `classId`, `sectionId`, `parentName`, `dateOfBirth`, `gender`, `address`. NEVER mix them.
+_Why This Pattern?_
+- Auth is separate from Profile - Login / Password / JWT must NEVER be mixed with `qualification` / `rollNo`
+- 1 Person = 1 Login - If Student becomes Teacher later, keep same `users._id`, just create `teachers` row. No new login, no new password.
+- Security - `teachers` / `students` are safe to `populate()` and send to frontend. You never accidentally leak `password` when you fetch a Student list.
+- NEVER Single Table - Do NOT put `rollNo`, `qualification`, `classId` in `users` with `null` for Admin - Dirty, 50% fields null.
+- NEVER Separate Login Tables - Do NOT give `teachers` / `students` their own `password` / `phone` - 3 login systems, password change in 3 places = Nightmare.
+_Transaction Rule - LOCKED ⭐:_
+- ALWAYS create `users` + `teachers` / `students` in ONE Mongoose Transaction (`session.startTransaction()`)
+- If profile save fails, `users` save must rollback. NEVER leave orphan `users` with no profile.
+- If `users` save fails, profile must NOT be created.
+- Same for Delete: NEVER hard delete `users` row. Set `users.isActive: false` only. Do NOT delete `teachers` / `students` row. Old Marks / Attendance stay linked. See Section 5A.
+_Fetch Rule:_
+- Name / Phone / Email ALWAYS via `populate('userId', 'name phone email')` from `users`. NEVER store duplicate name in `teachers` / `students`.
+- Backend lookup: `Student.findOne({ userId: req.user.id })` / `Teacher.findOne({ userId: req.user.id })` - `req.user.id` = JWT `id` = `users._id` = `teachers.userId` / `students.userId`.
+---
+
+### 1B. Validation - ZOD v4 - LOCKED ⭐
+_Rule:_ ALL Backend Validation MUST use _Zod v4_. NEVER Zod v3. NEVER `express-validator` / `joi` / `validator` for request validation. `validator` package is ONLY allowed inside Mongoose model for `validator.isEmail`, NOT for request validation.
+
+_Why Zod v4?_
+- Zod v3 syntax is DEAD in v4 - `required_error` / `invalid_type_error` / `errorMap` / `z.ZodIssueCode` are ignored / removed in v4 and give default `Invalid input: expected string...` message.
+- All validators must follow Zod v4 syntax only.
+
+_Zod v4 Rules - LOCKED ⭐:_
+- Use `z.string({ error: '...' })` for wrong type - NEVER `invalid_type_error`
+- Use `z.string({ error: (issue) => issue.input === undefined ? '... is required' : '... must be a string' })` for Missing vs Wrong Type - NEVER `required_error`
+- Use `z.enum([...], { error: (issue) => ... })` for enums - NEVER `errorMap`
+- Use `ctx.addIssue({ code: 'custom', message: '...', path: ['...'] })` in `superRefine` - NEVER `z.ZodIssueCode.custom`
+- Use `src/middlewares/validate.middleware.js` with dedupe - 1 error per field, `invalid_type` beats `custom`, return `issue.message` as-is, NEVER prefix with `field:`
+- `rollNo` is STRING, NOT number - `"001"`, `"A-12"`, `"50001"` all valid - `rollNo: 50001` (number) must give `Roll number must be a string`
+- `dateOfBirth: null` must be blocked - `z.preprocess((val) => val === null || val === '' ? '___invalid-date___' : val, z.coerce.date(...))` - `new Date(null)` = `1970-01-01` bug must NOT pass
+- Validator files live in each module: `src/modules/users/user.validator.js`, `src/modules/auth/auth.validator.js`, etc. - 1 Validator = 1 Module, same as 1 Model = 1 Folder.
+
+_Setup:_
+npm install zod # Must be v4.x - Check with npm list zod
+---
+
+### 1C. ApiResponse + Sanitize - LOCKED ⭐
+_File:_ `src/utils/apiResponse.js` - LOCKED ✅
+class ApiResponse {
+  constructor(statusCode, data, message = 'Success') {
+    this.statusCode = statusCode;
+    this.data = data;
+    this.message = message;
+    this.success = statusCode < 400;
+  }
+
+  static send(res, statusCode, data, message = 'Success') {
+    return res.status(statusCode).json(new ApiResponse(statusCode, data, message));
+  }
+}
+
+module.exports = ApiResponse;
+_Rule - LOCKED:_
+- NEVER `res.status().json({ success: true, ... })`
+- NEVER `res.status().json(new ApiResponse(...))` - Too long
+- ALWAYS `return ApiResponse.send(res, status, data, message)`
+- ALWAYS `return` it - No double-send bug
+- Response shape ALWAYS: `{ success, statusCode, data, message }`
+- Frontend Pinia ALWAYS reads `response.data.data` - Same for Login / Me / Create / List
+
+_Examples - LOCKED:_
+// getMe
+return ApiResponse.send(res, 200, { user: sanitizeUser(req.user) });
+
+// createUser
+return ApiResponse.send(res, 201, { user, profile }, message);
+
+// list
+return ApiResponse.send(res, 200, { users, total });
+
+// delete
+return ApiResponse.send(res, 200, null, 'Deleted successfully');
+// No message = 'Success' automatically
+_Sanitize Rule - LOCKED:_
+- NEVER return full Mongoose doc. NEVER `res.json({ user })` raw.
+- `sanitizeUser(user)` returns ONLY: `id, name, email, phone, role, isActive, avatar, createdAt`
+- NEVER return: `password, loginAttempts, lockUntil, resetPasswordToken, resetPasswordOtp, refreshTokenVersion, __v, isLocked, lastLogin`
+- `sanitizeProfile(profile)` returns: `{ id, ...rest }` - Removes `_id, __v, userId`
+- `userId` NOT duplicated in profile - Already in `user.id`
+- `profile: null` for Admin - Admin has no profile
 ---
 
 ### 2. Roles - 3 Roles - LOCKED
@@ -169,7 +254,7 @@ _Rule:_ JWT `id` = `users._id`. DB field `userId` in teachers/students = Same va
 
 ### 5. Schema - 11 Collections - LOCKED ✅ ALL MODELS LOCKED
 
-_0. `users` - PARENT OF ALL ⭐ - File: `src/modules/users/user.model.js`_
+_0. `users` - PARENT OF ALL ⭐ - File: `src/modules/users/user.model.js` - LOCKED ✅_
 _id: ObjectId - PK
 name: String - Required - Trim - Min 2, Max 50 - Name ONLY here
 phone: String - Required - Unique - Trim - Login ID - ONLY here - Stored as 10-digit `9876543210`
@@ -222,7 +307,7 @@ _Unique Index:_ `classId + name`
 _4. `students` - LOCKED ✅_
 _id: ObjectId - PK
 userId: ObjectId - FK -> users._id - Unique - 1 Student = 1 User - `ref: 'User'` - Value = JWT `id`
-rollNo: Number - Required
+rollNo: String - Required - Trim - `"001"`, `"A-12"`, `"50001"` - NEVER Number
 classId: ObjectId - FK -> classes._id - Required - Index
 sectionId: ObjectId - FK -> sections._id - Required - Index
 parentName: String - Trim - Optional // Parent name is different, so it stays here, not in users
@@ -530,7 +615,7 @@ We will NOT use Nuxt 3. In Nuxt 4, `app/` folder comes, `pages/` is inside it.
 suffa-api/
   src/modules/
     auth/ -> auth.controller.js, auth.routes.js, auth.validator.js - NO MODEL - Uses User model for Login / JWT + Refresh
-    users/ -> user.model.js, user.controller.js, user.routes.js - Model lives HERE - mongoose.model('User')
+    users/ -> user.model.js, user.controller.js, user.routes.js, user.validator.js - Model lives HERE - mongoose.model('User') - Controller LOCKED ✅ (create + getMe + updatePassword)
     teachers/
     classes/
     sections/
@@ -541,18 +626,23 @@ suffa-api/
     markSheets/
     studentAttendance/
     teacherAttendance/
+  src/middlewares/ -> validate.middleware.js - Zod v4 dedupe middleware - 1 error per field
+  src/utils/ -> apiResponse.js (LOCKED ✅), apiError.js, sendToken.js
   _Rule:_ 1 Model = 1 Folder. `auth` is exception - It has NO model, it uses `User` model. `users` folder holds the `User` model.
 
 ---
 
 ### In One Line - Full Project
-> _Frontend: Nuxt 4 + Pinia + Tailwind + PWA. Backend: Express + JWT Access (15m) + Refresh (7d) in HttpOnly Cookie + Bcrypt + MongoDB Atlas Free M0. Central User: 1 Person = 1 User Entry (name/phone/email/password only in users, phone is Login ID, email is Required, JWT uses `id`, role is lowercase). Admin creates Assignment. Teacher fills Marks + Student Attendance. If Absent, Main Teacher or Admin Shares it to another Teacher. Admin takes Teacher Attendance daily. Student and Parent use SAME Login to see Progress Report + Attendance. 1 Student = 1 Entry for Marks, 1 Class + 1 Day = 1 Entry for Attendance._
+> _Frontend: Nuxt 4 + Pinia + Tailwind + PWA. Backend: Express + JWT Access (15m) + Refresh (7d) in HttpOnly Cookie + Bcrypt + MongoDB Atlas Free M0 + Zod v4 for ALL Validation + ApiResponse.send() for ALL Success Responses. Central User: 1 Person = 1 User Entry (name/phone/email/password only in users, phone is Login ID, email is Required, JWT uses `id`, role is lowercase). Admin creates Assignment. Teacher fills Marks + Student Attendance. If Absent, Main Teacher or Admin Shares it to another Teacher. Admin takes Teacher Attendance daily. Student and Parent use SAME Login to see Progress Report + Attendance. 1 Student = 1 Entry for Marks, 1 Class + 1 Day = 1 Entry for Attendance._
 
-**What was changed in this update:**
-- Roles: ALL `Admin` -> `admin`, `Teacher` -> `teacher`, `Student` -> `student` - In 1A, 2, 3, 4, 5, 7, 8, 12 - JWT, checks, examples, permission table
-- Role Rule: **LOWERCASE ONLY - Industry Standard** - Display with `capitalize` in UI only, DB always lowercase
-- Email: OPTIONAL + `sparse` -> **REQUIRED + Unique** - Every User MUST have Email - If no personal Email, use Parent's Email - 1 Email = 1 User
-- Section 5 `users`: `email` - Required, Unique, `validator.isEmail` - Indexes: `email` unique (no sparse)
-- Section 1A: `name, phone, password, email` all ONLY in `users`
+_What was changed in this update:_
+- Added: _Section 1C - ApiResponse + Sanitize - LOCKED_ - `ApiResponse.send()` is the ONLY way to send success response, `sanitizeUser` + `sanitizeProfile` - No leak
+- Added: `src/utils/apiResponse.js` to Folder Structure
+- Fixed: _Section 5 `students.rollNo`_ - `Number` -> `String` - Was typo, matches Zod v4 + Model LOCKED
+- Status: `user.controller.js` - *LOCKED ✅* - `createUser + getMe + updatePassword`
+- Status: `ApiResponse` - *LOCKED ✅*
+- Status: `User` model - *LOCKED ✅* - Zero changes
+- Status: `Teacher` model - *LOCKED ✅*
+- Status: `Student` model - *LOCKED ✅*
 
-**Now LOCKED ✅ as per your file: Role = lowercase, Email = required, JWT = `id`, Refresh = YES. Your `User` model needs ZERO changes - LOCKED ✅**
+_Now LOCKED ✅ as per your file: Role = lowercase, Email = required, JWT = `id`, Refresh = YES, Validation = Zod v4, Central User + Profile = Industry Standard, Response = `ApiResponse.send()` ONLY, Sanitize = No Leak. Your `User` / `Teacher` / `Student` models need ZERO changes - LOCKED ✅_

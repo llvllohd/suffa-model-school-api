@@ -5,7 +5,6 @@ const categorySchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, 'Category name is required'],
-      unique: true,
       trim: true,
       maxlength: [50, 'Category name cannot exceed 50 characters'],
       minlength: [2, 'Category name must be atleast 2 characters'],
@@ -15,11 +14,14 @@ const categorySchema = new mongoose.Schema(
       default: true,
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
-categorySchema.index({ isActive: 1 });
+// ✅ Partial + Case-insensitive - Only active names unique, deleted can be reused
+// Quiz == quiz, Deleted Quiz can be recreated
+categorySchema.index({ name: 1 }, { unique: true, partialFilterExpression: { isActive: true }, collation: { locale: 'en', strength: 2 } });
+
+categorySchema.set('toJSON', { versionKey: false });
+categorySchema.set('toObject', { versionKey: false });
 
 module.exports = mongoose.model('Category', categorySchema);

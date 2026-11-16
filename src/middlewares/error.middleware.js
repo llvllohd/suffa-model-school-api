@@ -98,6 +98,7 @@ const errorHandler = (err, req, res, next) => {
     success: false,
     message: error.message,
     requestId: req.id,
+    ...(err.errors && { errors: err.errors }),
     // Show stack only in development, hide in production
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });

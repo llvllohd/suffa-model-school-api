@@ -1,16 +1,26 @@
 const { z } = require('zod');
 
-// --- Common - Same as auth.validator.js ---
-const emailSchema = z.string({ required_error: 'Email is required' }).trim().toLowerCase().max(254).email('Please enter a valid email');
+// --- Helper - V4 - SAME as auth.validator.js ---
+const reqString = (requiredMsg, typeMsg) =>
+  z.string({
+    error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
+  });
 
-const passwordSchema = z
-  .string({ required_error: 'Password is required' })
+// --- Common ---
+const emailSchema = reqString('Email is required', 'Email must be a string')
+  .trim()
+  .toLowerCase()
+  .min(1, 'Email is required')
+  .max(254, 'Email cannot exceed 254 characters')
+  .email('Please enter a valid email');
+
+const passwordSchema = reqString('Password is required', 'Password must be a string')
   .min(6, 'Password should have atleast 6 characters')
   .max(128, 'Password must be less than 128 characters');
 
-const phoneSchema = z
-  .string({ required_error: 'Phone is required' })
+const phoneSchema = reqString('Phone is required', 'Phone must be a string')
   .trim()
+  .min(1, 'Phone is required')
   .transform((val) => {
     const cleaned = val
       .replace(/[\s\-+]/g, '')
@@ -20,90 +30,126 @@ const phoneSchema = z
   })
   .refine((val) => /^[6-9]\d{9}$/.test(val), 'Please enter a valid phone number');
 
-const nameSchema = z
-  .string({ required_error: 'Name is required' })
+const nameSchema = reqString('Name is required', 'Name must be a string')
   .trim()
+  .min(1, 'Name is required')
   .min(2, 'Name must be atleast 2 characters')
   .max(50, 'Name cannot exceed 50 characters');
 
-const objectIdSchema = z
-  .string({ required_error: 'Invalid id' })
+const classIdSchema = reqString('Class is required', 'Class id must be a string')
   .trim()
-  .regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
+  .min(1, 'Class is required')
+  .regex(/^[0-9a-fA-F]{24}$/, 'Class id is invalid');
 
-// ✅ FIX 1 - DOB: Valid date + Not in future
-const dateOfBirthSchema = z.coerce
-  .date({ required_error: 'Invalid date of birth' })
+const sectionIdSchema = reqString('Section is required', 'Section id must be a string')
+  .trim()
+  .min(1, 'Section is required')
+  .regex(/^[0-9a-fA-F]{24}$/, 'Section id is invalid');
+
+const dateOfBirthSchema = z
+  .preprocess(
+    (val) => (val === null || val === '' ? '___invalid-date___' : val),
+    z.coerce.date({ error: (issue) => (issue.input === undefined ? 'Date of birth is required' : 'Date of birth must be a valid date') }),
+  )
   .refine((d) => !isNaN(d.getTime()), { message: 'Invalid date of birth' })
   .refine((d) => d <= new Date(), { message: 'Date of birth cannot be in future' })
   .optional();
 
+const genderSchema = z
+  .enum(['Male', 'Female'], {
+    error: (issue) => {
+      if (issue.input === undefined) return 'Gender is required';
+      return 'Gender must be Male or Female';
+    },
+  })
+  .optional();
+
+const qualificationSchema = z
+  .string({ error: 'Qualification must be a string' })
+  .trim()
+  .min(1, 'Qualification is required')
+  .max(100, 'Qualification cannot exceed 100 characters')
+  .optional();
+
+const addressSchema = z
+  .string({ error: 'Address must be a string' })
+  .trim()
+  .min(1, 'Address is required')
+  .max(500, 'Address cannot exceed 500 characters')
+  .optional();
+
+const parentNameSchema = z
+  .string({ error: 'Parent name must be a string' })
+  .trim()
+  .min(1, 'Parent name is required')
+  .max(50, 'Parent name cannot exceed 50 characters')
+  .optional();
+
+// ✅ rollNo is STRING - "001", "A-12", "50001" all valid
+const rollNoSchema = z
+  .string({ error: 'Roll number must be a string' })
+  .trim()
+  .min(1, 'Roll number is required')
+  .max(20, 'Roll number cannot exceed 20 characters')
+  .optional();
+
+const roleSchema = z.enum(['admin', 'teacher', 'student'], {
+  error: (issue) => {
+    if (issue.input === undefined) return 'Role is required';
+    return 'Role must be admin, teacher or student';
+  },
+});
+
 // --- CREATE USER - Admin Only ---
-// Admin creates Teacher / Student / Admin
-// Role decides which extra fields are required
 const createUserSchema = z
   .object({
     name: nameSchema,
     email: emailSchema,
     phone: phoneSchema,
     password: passwordSchema,
-    role: z.enum(['admin', 'teacher', 'student'], { required_error: 'Role is required' }),
-
-    // Teacher fields - Optional
-    qualification: z.string().trim().max(100, 'Qualification cannot exceed 100 characters').optional(),
-
-    // Shared - Teacher + Student
+    role: roleSchema,
+    qualification: qualificationSchema,
     dateOfBirth: dateOfBirthSchema,
-    gender: z.enum(['Male', 'Female']).optional(),
-    address: z.string().trim().max(500, 'Address cannot exceed 500 characters').optional(),
-
-    // Student fields - Required ONLY if role === 'student'
-    rollNo: z.number().int().min(1, 'Roll number is required').optional(),
-    classId: objectIdSchema.optional(),
-    sectionId: objectIdSchema.optional(),
-    parentName: z.string().trim().max(50, 'Parent name cannot exceed 50 characters').optional(),
+    gender: genderSchema,
+    address: addressSchema,
+    rollNo: rollNoSchema,
+    classId: classIdSchema.optional(),
+    sectionId: sectionIdSchema.optional(),
+    parentName: parentNameSchema,
   })
   .strict()
   .superRefine((data, ctx) => {
-    // Student must have class + section + rollNo
     if (data.role === 'student') {
-      if (!data.rollNo) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Roll number is required', path: ['rollNo'] });
+      if (data.rollNo === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'Roll number is required', path: ['rollNo'] });
       }
-      if (!data.classId) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Class is required', path: ['classId'] });
+      if (data.classId === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'Class is required', path: ['classId'] });
       }
-      if (!data.sectionId) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Section is required', path: ['sectionId'] });
+      if (data.sectionId === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'Section is required', path: ['sectionId'] });
       }
     }
-    // Teacher / Admin must NOT send student fields
-    if (data.role !== 'student' && (data.rollNo || data.classId || data.sectionId || data.parentName)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Student fields are only allowed for student role', path: ['role'] });
+    if (data.role !== 'student' && (data.rollNo !== undefined || data.classId !== undefined || data.sectionId !== undefined || data.parentName !== undefined)) {
+      ctx.addIssue({ code: 'custom', message: 'Student fields are only allowed for student role', path: ['role'] });
     }
-    // Admin / Student must NOT send qualification
-    if (data.role !== 'teacher' && data.qualification) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Qualification is only allowed for teacher role', path: ['role'] });
+    if (data.role !== 'teacher' && data.qualification !== undefined) {
+      ctx.addIssue({ code: 'custom', message: 'Qualification is only allowed for teacher role', path: ['role'] });
     }
   });
 
 // --- UPDATE USER - Admin Only ---
-// Admin can update name / email / phone / isActive - NOT role, NOT password
-// NOTE: Role-based check (qualification vs parentName) MUST be done in controller
-// because role is NOT in this payload - Controller knows existing user's role
 const updateUserSchema = z
   .object({
     name: nameSchema.optional(),
     email: emailSchema.optional(),
     phone: phoneSchema.optional(),
-    isActive: z.boolean().optional(),
-    // Profile fields - If teacher / student profile exists
-    qualification: z.string().trim().max(100).optional(),
+    isActive: z.boolean({ error: 'isActive must be true or false' }).optional(),
+    qualification: qualificationSchema,
     dateOfBirth: dateOfBirthSchema,
-    gender: z.enum(['Male', 'Female']).optional(),
-    address: z.string().trim().max(500).optional(),
-    parentName: z.string().trim().max(50).optional(),
-    // Student cannot change class/section/rollNo via this route - Use separate transfer route
+    gender: genderSchema,
+    address: addressSchema,
+    parentName: parentNameSchema,
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required to update' });
@@ -111,7 +157,10 @@ const updateUserSchema = z
 // --- Params - /users/:id ---
 const userParamsSchema = z
   .object({
-    id: objectIdSchema,
+    id: reqString('User id is required', 'User id must be a string')
+      .trim()
+      .min(1, 'User id is required')
+      .regex(/^[0-9a-fA-F]{24}$/, 'User id is invalid'),
   })
   .strict();
 

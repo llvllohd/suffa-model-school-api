@@ -21,13 +21,13 @@ const seedDev = async () => {
 
     // 1. Admin
     await User.create({
-      name: 'Principal',
-      email: 'principal@suffa.com',
-      phone: '9999999999',
+      name: 'Admin',
+      email: 'admin@suffa.com',
+      phone: '9988776655',
       password: 'Admin@123',
       role: 'admin',
     });
-    console.log('✅ Admin: 9999999999 / Admin@123');
+    console.log('✅ Admin: 9988776655 / Admin@123');
 
     // 2. Categories
     const words = await Category.create({ name: 'Words' });

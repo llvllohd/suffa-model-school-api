@@ -1,16 +1,24 @@
 const { z } = require('zod');
 
-// --- Common ---
-const emailSchema = z.string({ required_error: 'Email is required' }).trim().toLowerCase().max(254).email('Please enter a valid email');
+// --- Helper - V4 - Same pattern as category nameField ---
+const reqString = (requiredMsg, typeMsg) =>
+  z.string({
+    error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
+  });
 
-const passwordSchema = z
-  .string({ required_error: 'Password is required' })
+// --- Common ---
+const emailSchema = reqString('Email is required', 'Email must be a string')
+  .trim()
+  .toLowerCase()
+  .max(254, 'Email must be less than 254 characters')
+  .email('Please enter a valid email');
+
+const passwordSchema = reqString('Password is required', 'Password must be a string')
   .min(6, 'Password should have atleast 6 characters')
   .max(128, 'Password must be less than 128 characters');
 
 // Phone - Required, always stored as 10-digit
-const phoneSchema = z
-  .string({ required_error: 'Phone is required' })
+const phoneSchema = reqString('Phone is required', 'Phone must be a string')
   .trim()
   .transform((val) => {
     const cleaned = val
@@ -25,29 +33,20 @@ const phoneSchema = z
 const loginSchema = z
   .object({
     phone: phoneSchema,
-    password: z.string({ required_error: 'Invalid phone or password' }).min(1, 'Invalid phone or password'),
+    password: reqString('Invalid phone or password', 'Invalid phone or password').min(1, 'Invalid phone or password'),
   })
   .strict();
 
 // --- FORGOT PASSWORD - Reset Link ---
-const forgotPasswordSchema = z
-  .object({
-    email: emailSchema,
-  })
-  .strict();
+const forgotPasswordSchema = z.object({ email: emailSchema }).strict();
 
 // --- FORGOT PASSWORD - OTP ---
-const forgotPasswordOtpSchema = z
-  .object({
-    email: emailSchema,
-  })
-  .strict();
+const forgotPasswordOtpSchema = z.object({ email: emailSchema }).strict();
 
 // --- RESET PASSWORD - Params : /reset/:token ---
 const resetPasswordParamsSchema = z
   .object({
-    token: z
-      .string({ required_error: 'Invalid token' })
+    token: reqString('Invalid token', 'Invalid token')
       .trim()
       .length(64, 'Invalid token')
       .regex(/^[a-f0-9]+$/, 'Invalid token'),
@@ -58,7 +57,7 @@ const resetPasswordParamsSchema = z
 const resetPasswordSchema = z
   .object({
     password: passwordSchema,
-    confirmPassword: z.string({ required_error: 'Passwords do not match' }),
+    confirmPassword: reqString('Passwords do not match', 'Confirm password must be a string'),
   })
   .strict()
   .refine((data) => data.password === data.confirmPassword, {
@@ -70,8 +69,7 @@ const resetPasswordSchema = z
 const verifyOtpSchema = z
   .object({
     email: emailSchema,
-    otp: z
-      .string({ required_error: 'OTP is required' })
+    otp: reqString('OTP is required', 'OTP must be a string')
       .trim()
       .length(6, 'Invalid OTP')
       .regex(/^\d{6}$/, 'Invalid OTP'),
@@ -81,9 +79,9 @@ const verifyOtpSchema = z
 // --- RESET PASSWORD WITH OTP ---
 const resetPasswordWithOtpSchema = z
   .object({
-    otpSessionToken: z.string({ required_error: 'Session token is required' }).trim().min(1, 'Session token is required'),
+    otpSessionToken: reqString('Session token is required', 'Session token must be a string').trim().min(1, 'Session token is required'),
     password: passwordSchema,
-    confirmPassword: z.string({ required_error: 'Passwords do not match' }),
+    confirmPassword: reqString('Passwords do not match', 'Confirm password must be a string'),
   })
   .strict()
   .refine((data) => data.password === data.confirmPassword, {
@@ -94,9 +92,9 @@ const resetPasswordWithOtpSchema = z
 // --- UPDATE PASSWORD - Logged In User ---
 const updatePasswordSchema = z
   .object({
-    oldPassword: z.string({ required_error: 'Old password is required' }).min(1, 'Old password is required'),
+    oldPassword: reqString('Old password is required', 'Old password must be a string').min(1, 'Old password is required'),
     newPassword: passwordSchema,
-    confirmPassword: z.string({ required_error: 'Confirm password is required' }),
+    confirmPassword: reqString('Confirm password is required', 'Confirm password must be a string'),
   })
   .strict()
   .refine((data) => data.newPassword !== data.oldPassword, {

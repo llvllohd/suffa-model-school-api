@@ -14,11 +14,12 @@ const authRoutes = require('@/modules/auth/auth.routes');
 const userRoutes = require('@/modules/users/user.routes');
 
 // School routes - protected
-const studentRoutes = require('@/modules/students/student.routes');
-const teacherRoutes = require('@/modules/teachers/teacher.routes');
-const attendanceRoutes = require('@/modules/attendance/attendance.routes');
-const examRoutes = require('@/modules/exams/exam.routes');
-const dashboardRoutes = require('@/modules/dashboard/dashboard.routes');
+const categoryRoutes = require('@/modules/categories/category.routes');
+// const studentRoutes = require('@/modules/students/student.routes');
+// const teacherRoutes = require('@/modules/teachers/teacher.routes');
+// const attendanceRoutes = require('@/modules/attendance/attendance.routes');
+// const examRoutes = require('@/modules/exams/exam.routes');
+// const dashboardRoutes = require('@/modules/dashboard/dashboard.routes');
 
 const app = express();
 
@@ -70,12 +71,13 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes); // /register, /login, /forgot-password (has own rate limiters)
 app.use('/api/v1/users', userRoutes); // /me, /update profile
 
-// --- School Routes (protected: isAuthenticatedUser + authorizedRole('admin','teacher')) ---
-app.use('/api/v1/students', studentRoutes); // CRUD students, photo URL
-app.use('/api/v1/teachers', teacherRoutes); // CRUD teachers
-app.use('/api/v1/attendance', attendanceRoutes); // Daily attendance
-app.use('/api/v1/exams', examRoutes); // Exams, marks, report card
-app.use('/api/v1/admin/dashboard', dashboardRoutes); // Total students, teachers, fees stats
+// --- School Routes (protected: isAuthenticatedUser + authorizedRole('admin')) ---
+app.use('/api/v1/categories', categoryRoutes); // CRUD categories - Class 1, Class 2...
+// app.use('/api/v1/students', studentRoutes); // CRUD students, photo URL
+// app.use('/api/v1/teachers', teacherRoutes); // CRUD teachers
+// app.use('/api/v1/attendance', attendanceRoutes); // Daily attendance
+// app.use('/api/v1/exams', examRoutes); // Exams, marks, report card
+// app.use('/api/v1/admin/dashboard', dashboardRoutes); // Total students, teachers, fees stats
 
 // ==================== 8. UNKNOWN ROUTE HANDLER ====================
 // If no route matched above, throw 404 (must be after all routes)

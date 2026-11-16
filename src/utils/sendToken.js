@@ -1,20 +1,29 @@
+const TeacherProfile = require('@/modules/teachers/teacher.model');
+const StudentProfile = require('@/modules/students/student.model');
+const ApiResponse = require('./apiResponse');
+const { mergeUserProfile } = require('./sanitize');
 const { getCookieOptionsForToken, getCookieOptionsForRefreshToken } = require('./cookieOptions');
 
-const sendToken = (user, statusCode, res, message) => {
+const sendToken = async (user, statusCode, res, message) => {
   const token = user.generateToken();
   const refreshToken = user.generateRefreshToken();
 
-  const { _id, name, email, phone, role, avatar, createdAt } = user;
+  // ✅ Fetch profile based on role + populate class/section
+  let profile = null;
+  if (user.role === 'teacher') {
+    profile = await TeacherProfile.findOne({ userId: user._id });
+  }
+  if (user.role === 'student') {
+    profile = await StudentProfile.findOne({ userId: user._id }).populate([
+      { path: 'classId', select: 'name' },
+      { path: 'sectionId', select: 'name' },
+    ]);
+  }
 
-  res
-    .status(statusCode)
-    .cookie('token', token, getCookieOptionsForToken()) // 15 minutes for access token
-    .cookie('refreshToken', refreshToken, getCookieOptionsForRefreshToken()) // 7 days for refresh token
-    .json({
-      success: true,
-      message,
-      user: { _id, name, email, phone, role, avatar, createdAt },
-    });
+  res.cookie('token', token, getCookieOptionsForToken());
+  res.cookie('refreshToken', refreshToken, getCookieOptionsForRefreshToken());
+
+  return ApiResponse.send(res, statusCode, { user: mergeUserProfile(user, profile) }, message);
 };
 
 module.exports = sendToken;
