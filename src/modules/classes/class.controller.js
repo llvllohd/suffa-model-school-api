@@ -25,14 +25,13 @@ exports.getClassById = async (req, res, next) => {
   return ApiResponse.send(res, 200, { class: classDoc }, 'Class fetched successfully');
 };
 
-// PUT /api/v1/classes/:id - Admin Only
+// PATCH /api/v1/classes/:id - Admin Only
 exports.updateClass = async (req, res, next) => {
   const { name, description } = req.body; // ✅ isActive NOT allowed here
   const classDoc = await ClassModel.findOne({ _id: req.params.id, isActive: true });
   if (!classDoc) return next(new ApiError('Class not found', 404));
 
-  classDoc.name = name;
-  // ✅ Only overwrite description if sent - So PUT without description doesn't wipe it
+  if (name !== undefined) classDoc.name = name;
   if (description !== undefined) classDoc.description = description;
   await classDoc.save(); // ✅ runValidators via save, duplicate -> 11000 -> 409
   return ApiResponse.send(res, 200, { class: classDoc }, 'Class updated successfully');

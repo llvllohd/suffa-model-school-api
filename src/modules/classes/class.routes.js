@@ -14,16 +14,10 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), validate(createCl
 router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), asyncHandlerMiddleware(getClasses));
 
 // GET /api/v1/classes/:id - Admin, Teacher
-router.get(
-  '/:id',
-  isAuthenticatedUser,
-  authorizeRoles('admin', 'teacher'),
-  validate(classParamsSchema, 'params'),
-  asyncHandlerMiddleware(getClassById),
-);
+router.get('/:id', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), validate(classParamsSchema, 'params'), asyncHandlerMiddleware(getClassById));
 
-// PUT /api/v1/classes/:id - Admin Only
-router.put(
+// PATCH /api/v1/classes/:id - Admin Only
+router.patch(
   '/:id',
   isAuthenticatedUser,
   authorizeRoles('admin'),

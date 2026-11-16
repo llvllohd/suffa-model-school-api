@@ -25,7 +25,7 @@ exports.getCategoryById = async (req, res, next) => {
   return ApiResponse.send(res, 200, { category }, 'Category fetched successfully');
 };
 
-// PUT /api/v1/categories/:id - Admin Only
+// PATCH /api/v1/categories/:id - Admin Only
 exports.updateCategory = async (req, res, next) => {
   const { name } = req.body; // ✅ isActive NOT allowed here
   const category = await Category.findOne({ _id: req.params.id, isActive: true });

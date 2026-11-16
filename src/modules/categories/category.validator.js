@@ -14,7 +14,7 @@ const nameField = reqString('Category name is required', 'Category name must be 
 
 const createCategorySchema = z.object({ name: nameField }).strict();
 
-// ✅ No isActive - isActive changes ONLY via DELETE endpoint
+// ✅ PATCH - No isActive - isActive changes ONLY via DELETE endpoint
 const updateCategorySchema = z.object({ name: nameField }).strict();
 
 const categoryParamsSchema = z

@@ -21,8 +21,15 @@ const descriptionField = z
 
 const createClassSchema = z.object({ name: nameField, description: descriptionField }).strict();
 
-// ✅ No isActive - isActive changes ONLY via DELETE endpoint
-const updateClassSchema = z.object({ name: nameField, description: descriptionField }).strict();
+const updateClassSchema = z
+  .object({
+    name: nameField.optional(),
+    description: descriptionField,
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field is required to update',
+  });
 
 const classParamsSchema = z
   .object({

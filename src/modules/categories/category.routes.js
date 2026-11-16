@@ -14,16 +14,10 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), validate(createCa
 router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), asyncHandlerMiddleware(getCategories));
 
 // GET /api/v1/categories/:id - Admin, Teacher
-router.get(
-  '/:id',
-  isAuthenticatedUser,
-  authorizeRoles('admin', 'teacher'),
-  validate(categoryParamsSchema, 'params'),
-  asyncHandlerMiddleware(getCategoryById),
-);
+router.get('/:id', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), validate(categoryParamsSchema, 'params'), asyncHandlerMiddleware(getCategoryById));
 
-// PUT /api/v1/categories/:id - Admin Only
-router.put(
+// PATCH /api/v1/categories/:id - Admin Only
+router.patch(
   '/:id',
   isAuthenticatedUser,
   authorizeRoles('admin'),
