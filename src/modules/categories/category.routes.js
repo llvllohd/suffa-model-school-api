@@ -10,14 +10,14 @@ const asyncHandlerMiddleware = require('@/middlewares/asyncHandler.middleware');
 // POST /api/v1/categories - Admin Only
 router.post('/', isAuthenticatedUser, authorizeRoles('admin'), validate(createCategorySchema), asyncHandlerMiddleware(createCategory));
 
-// GET /api/v1/categories - Admin, Teacher, Student (for report card / marks)
-router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher', 'student'), asyncHandlerMiddleware(getCategories));
+// GET /api/v1/categories - Admin, Teacher
+router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), asyncHandlerMiddleware(getCategories));
 
-// GET /api/v1/categories/:id - Admin, Teacher, Student
+// GET /api/v1/categories/:id - Admin, Teacher
 router.get(
   '/:id',
   isAuthenticatedUser,
-  authorizeRoles('admin', 'teacher', 'student'),
+  authorizeRoles('admin', 'teacher'),
   validate(categoryParamsSchema, 'params'),
   asyncHandlerMiddleware(getCategoryById),
 );

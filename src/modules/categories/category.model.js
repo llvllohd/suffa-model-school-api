@@ -21,7 +21,4 @@ const categorySchema = new mongoose.Schema(
 // Quiz == quiz, Deleted Quiz can be recreated
 categorySchema.index({ name: 1 }, { unique: true, partialFilterExpression: { isActive: true }, collation: { locale: 'en', strength: 2 } });
 
-categorySchema.set('toJSON', { versionKey: false });
-categorySchema.set('toObject', { versionKey: false });
-
 module.exports = mongoose.model('Category', categorySchema);

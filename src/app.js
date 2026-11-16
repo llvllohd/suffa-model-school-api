@@ -15,6 +15,7 @@ const userRoutes = require('@/modules/users/user.routes');
 
 // School routes - protected
 const categoryRoutes = require('@/modules/categories/category.routes');
+const classRoutes = require('@/modules/classes/class.routes');
 // const studentRoutes = require('@/modules/students/student.routes');
 // const teacherRoutes = require('@/modules/teachers/teacher.routes');
 // const attendanceRoutes = require('@/modules/attendance/attendance.routes');
@@ -72,7 +73,8 @@ app.use('/api/v1/auth', authRoutes); // /register, /login, /forgot-password (has
 app.use('/api/v1/users', userRoutes); // /me, /update profile
 
 // --- School Routes (protected: isAuthenticatedUser + authorizedRole('admin')) ---
-app.use('/api/v1/categories', categoryRoutes); // CRUD categories - Class 1, Class 2...
+app.use('/api/v1/categories', categoryRoutes); // CRUD categories
+app.use('/api/v1/classes', classRoutes); // CRUD classes
 // app.use('/api/v1/students', studentRoutes); // CRUD students, photo URL
 // app.use('/api/v1/teachers', teacherRoutes); // CRUD teachers
 // app.use('/api/v1/attendance', attendanceRoutes); // Daily attendance
