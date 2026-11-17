@@ -17,6 +17,7 @@ const userRoutes = require('@/modules/users/user.routes');
 const categoryRoutes = require('@/modules/categories/category.routes');
 const classRoutes = require('@/modules/classes/class.routes');
 const sectionRoutes = require('@/modules/sections/section.routes');
+const subjectRoutes = require('@/modules/subjects/subject.routes');
 // const studentRoutes = require('@/modules/students/student.routes');
 // const teacherRoutes = require('@/modules/teachers/teacher.routes');
 // const attendanceRoutes = require('@/modules/attendance/attendance.routes');
@@ -77,6 +78,7 @@ app.use('/api/v1/users', userRoutes); // /me, /update profile
 app.use('/api/v1/categories', categoryRoutes); // CRUD categories
 app.use('/api/v1/classes', classRoutes); // CRUD classes
 app.use('/api/v1/sections', sectionRoutes); // CRUD sections
+app.use('/api/v1/subjects', subjectRoutes); // CRUD subjects
 // app.use('/api/v1/students', studentRoutes); // CRUD students, photo URL
 // app.use('/api/v1/teachers', teacherRoutes); // CRUD teachers
 // app.use('/api/v1/attendance', attendanceRoutes); // Daily attendance
