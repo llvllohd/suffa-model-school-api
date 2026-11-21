@@ -18,8 +18,10 @@ const categoryRoutes = require('@/modules/categories/category.routes');
 const classRoutes = require('@/modules/classes/class.routes');
 const sectionRoutes = require('@/modules/sections/section.routes');
 const subjectRoutes = require('@/modules/subjects/subject.routes');
-// const studentRoutes = require('@/modules/students/student.routes');
-// const teacherRoutes = require('@/modules/teachers/teacher.routes');
+const teacherRoutes = require('@/modules/teachers/teacher.routes');
+const studentRoutes = require('@/modules/students/student.routes');
+const subjectAllocationRoutes = require('@/modules/subjectAllocations/subjectAllocation.routes');
+const subjectAssignmentRoutes = require('@/modules/subjectAssignments/subjectAssignment.routes');
 // const attendanceRoutes = require('@/modules/attendance/attendance.routes');
 // const examRoutes = require('@/modules/exams/exam.routes');
 // const dashboardRoutes = require('@/modules/dashboard/dashboard.routes');
@@ -79,8 +81,10 @@ app.use('/api/v1/categories', categoryRoutes); // CRUD categories
 app.use('/api/v1/classes', classRoutes); // CRUD classes
 app.use('/api/v1/sections', sectionRoutes); // CRUD sections
 app.use('/api/v1/subjects', subjectRoutes); // CRUD subjects
-// app.use('/api/v1/students', studentRoutes); // CRUD students, photo URL
-// app.use('/api/v1/teachers', teacherRoutes); // CRUD teachers
+app.use('/api/v1/teachers', teacherRoutes); // CRUD teachers
+app.use('/api/v1/students', studentRoutes); // CRUD students
+app.use('/api/v1/subject-allocations', subjectAllocationRoutes); // CRUD subject allocations
+app.use('/api/v1/subject-assignments', subjectAssignmentRoutes); // CRUD subject assignments
 // app.use('/api/v1/attendance', attendanceRoutes); // Daily attendance
 // app.use('/api/v1/exams', examRoutes); // Exams, marks, report card
 // app.use('/api/v1/admin/dashboard', dashboardRoutes); // Total students, teachers, fees stats

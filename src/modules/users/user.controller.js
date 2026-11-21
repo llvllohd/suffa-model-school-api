@@ -10,6 +10,8 @@ const sendToken = require('@/utils/sendToken');
 const { mergeUserProfile } = require('@/utils/sanitize');
 
 exports.getMe = async (req, res, next) => {
+  if (req.user.isActive === false) return next(new ApiError('User not found', 404));
+
   let profile = null;
   if (req.user.role === 'teacher') {
     profile = await TeacherProfile.findOne({ userId: req.user.id });
@@ -25,10 +27,27 @@ exports.getMe = async (req, res, next) => {
 
 // --- CREATE USER - Admin Only ---
 exports.createUser = async (req, res, next) => {
-  const { name, email, phone, password, role, qualification, dateOfBirth, gender, address, rollNo, classId, sectionId, parentName } = req.body;
+  const {
+    name,
+    email,
+    phone,
+    password,
+    role,
+    qualification,
+    dateOfBirth,
+    gender,
+    address,
+    // Student fields - Same names as student.model.js
+    classId,
+    sectionId,
+    rollNumber,
+    admissionNumber,
+    guardianName,
+    guardianPhone,
+  } = req.body;
 
   // 1. Pre-check - Friendly 409 before transaction
-  const existing = await User.findOne({ $or: [{ email }, { phone }] }).select('email phone');
+  const existing = await User.findOne({ $or: [{ email }, { phone }], isActive: true }).select('email phone');
   if (existing) {
     if (existing.email === email) return next(new ApiError('Email already exists', 409));
     if (existing.phone === phone) return next(new ApiError('Phone already exists', 409));
@@ -36,14 +55,33 @@ exports.createUser = async (req, res, next) => {
 
   // 2. Student: Class + Section must exist + Section must belong to Class
   if (role === 'student') {
-    const [cls, section] = await Promise.all([Class.findById(classId), Section.findById(sectionId)]);
+    const [cls, section] = await Promise.all([
+      Class.findOne({ _id: classId, isActive: true }).lean(),
+      Section.findOne({ _id: sectionId, classId, isActive: true }).lean(),
+    ]);
     if (!cls) return next(new ApiError('Class not found', 404));
-    if (!section) return next(new ApiError('Section not found', 404));
-    if (String(section.classId) !== String(classId)) {
-      return next(new ApiError('Section does not belong to this class', 400));
+    if (!section) return next(new ApiError('Section not found or does not belong to this Class', 404));
+
+    // Same Class + Same Section me Roll Number duplicate nahi
+    const rollExists = await StudentProfile.findOne({ classId, sectionId, rollNumber }).lean();
+    if (rollExists) {
+      // Deleted (User inactive) wale ka Roll reuse ho sakta hai
+      const rollUser = await User.findById(rollExists.userId).lean();
+      if (rollUser && rollUser.isActive !== false) {
+        return next(new ApiError(`Roll number ${rollNumber} already exists in this section`, 409));
+      }
     }
-    const rollExists = await StudentProfile.findOne({ sectionId, rollNo });
-    if (rollExists) return next(new ApiError(`Roll number ${rollNo} already exists in this section`, 409));
+
+    // Admission Number duplicate check - Deleted user wale reuse ho sakte hai
+    if (admissionNumber) {
+      const admExists = await StudentProfile.findOne({ admissionNumber }).lean();
+      if (admExists) {
+        const admUser = await User.findById(admExists.userId).lean();
+        if (admUser && admUser.isActive !== false) {
+          return next(new ApiError('Admission Number already exists', 409));
+        }
+      }
+    }
   }
 
   // 3. Transaction - User + Profile must both succeed or both fail
@@ -57,7 +95,10 @@ exports.createUser = async (req, res, next) => {
       [profile] = await TeacherProfile.create([{ userId: user._id, qualification, dateOfBirth, gender, address }], { session });
     }
     if (role === 'student') {
-      [profile] = await StudentProfile.create([{ userId: user._id, rollNo, classId, sectionId, parentName, dateOfBirth, gender, address }], { session });
+      [profile] = await StudentProfile.create(
+        [{ userId: user._id, classId, sectionId, rollNumber, admissionNumber, dateOfBirth, gender, address, guardianName, guardianPhone }],
+        { session },
+      );
     }
 
     await session.commitTransaction();
@@ -80,11 +121,12 @@ exports.createUser = async (req, res, next) => {
     session.endSession();
   }
 };
+
 exports.updatePassword = async (req, res, next) => {
   const { oldPassword, newPassword } = req.body;
 
   const user = await User.findById(req.user.id).select('+password');
-  if (!user) {
+  if (!user || user.isActive === false) {
     return next(new ApiError('User not found', 404));
   }
 

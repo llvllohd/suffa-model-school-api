@@ -25,7 +25,6 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, 'Email is required'],
-      unique: true,
       lowercase: true,
       trim: true,
       validate: [validator.isEmail, 'Please enter a valid email'],
@@ -33,7 +32,6 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: [true, 'Phone is required - Phone is the Login ID'],
-      unique: true,
       trim: true,
       validate: {
         validator: function (v) {
@@ -75,14 +73,15 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-// ✅ FIXED: Only 2 indexes - unique: true above already creates phone/email indexes
+userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { isActive: true } });
+userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { isActive: true } });
 userSchema.index({ role: 1, isActive: 1 });
 userSchema.index({ createdAt: -1 });
 
 // Normalize phone before save
 userSchema.pre('save', function (next) {
   if (this.isModified('phone') && this.phone) {
-    this.phone = normalizePhone(this.phone); // Always stored as 9876543210
+    this.phone = normalizePhone(this.phone);
   }
   next();
 });

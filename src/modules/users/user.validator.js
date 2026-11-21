@@ -1,6 +1,5 @@
 const { z } = require('zod');
 
-// --- Helper - V4 - SAME as auth.validator.js ---
 const reqString = (requiredMsg, typeMsg) =>
   z.string({
     error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
@@ -78,19 +77,29 @@ const addressSchema = z
   .max(500, 'Address cannot exceed 500 characters')
   .optional();
 
-const parentNameSchema = z
-  .string({ error: 'Parent name must be a string' })
+// Student fields - Same names and rules as student.validator.js
+const guardianNameSchema = z
+  .string({ error: 'Guardian Name must be a string' })
   .trim()
-  .min(1, 'Parent name is required')
-  .max(50, 'Parent name cannot exceed 50 characters')
+  .min(2, 'Guardian Name must be at least 2 characters')
+  .max(50, 'Guardian Name cannot exceed 50 characters')
   .optional();
 
-// ✅ rollNo is STRING - "001", "A-12", "50001" all valid
-const rollNoSchema = z
-  .string({ error: 'Roll number must be a string' })
+const guardianPhoneSchema = reqString('Guardian Phone is required', 'Guardian Phone must be a string')
   .trim()
-  .min(1, 'Roll number is required')
-  .max(20, 'Roll number cannot exceed 20 characters')
+  .regex(/^[6-9]\d{9}$/, 'Guardian Phone must be a valid 10-digit Indian number')
+  .optional();
+
+const admissionNumberSchema = reqString('Admission Number is required', 'Admission Number must be a string')
+  .trim()
+  .min(1, 'Admission Number is required')
+  .max(20, 'Admission Number cannot exceed 20 characters')
+  .optional();
+
+const rollNumberSchema = z
+  .number({ error: () => 'Roll Number is required' })
+  .int('Roll Number must be a whole number')
+  .min(1, 'Roll Number must be at least 1')
   .optional();
 
 const roleSchema = z.enum(['admin', 'teacher', 'student'], {
@@ -112,16 +121,19 @@ const createUserSchema = z
     dateOfBirth: dateOfBirthSchema,
     gender: genderSchema,
     address: addressSchema,
-    rollNo: rollNoSchema,
+    // Student only
     classId: classIdSchema.optional(),
     sectionId: sectionIdSchema.optional(),
-    parentName: parentNameSchema,
+    rollNumber: rollNumberSchema,
+    admissionNumber: admissionNumberSchema,
+    guardianName: guardianNameSchema,
+    guardianPhone: guardianPhoneSchema,
   })
   .strict()
   .superRefine((data, ctx) => {
     if (data.role === 'student') {
-      if (data.rollNo === undefined) {
-        ctx.addIssue({ code: 'custom', message: 'Roll number is required', path: ['rollNo'] });
+      if (data.rollNumber === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'Roll number is required', path: ['rollNumber'] });
       }
       if (data.classId === undefined) {
         ctx.addIssue({ code: 'custom', message: 'Class is required', path: ['classId'] });
@@ -130,7 +142,15 @@ const createUserSchema = z
         ctx.addIssue({ code: 'custom', message: 'Section is required', path: ['sectionId'] });
       }
     }
-    if (data.role !== 'student' && (data.rollNo !== undefined || data.classId !== undefined || data.sectionId !== undefined || data.parentName !== undefined)) {
+    if (
+      data.role !== 'student' &&
+      (data.rollNumber !== undefined ||
+        data.classId !== undefined ||
+        data.sectionId !== undefined ||
+        data.admissionNumber !== undefined ||
+        data.guardianName !== undefined ||
+        data.guardianPhone !== undefined)
+    ) {
       ctx.addIssue({ code: 'custom', message: 'Student fields are only allowed for student role', path: ['role'] });
     }
     if (data.role !== 'teacher' && data.qualification !== undefined) {
@@ -149,7 +169,7 @@ const updateUserSchema = z
     dateOfBirth: dateOfBirthSchema,
     gender: genderSchema,
     address: addressSchema,
-    parentName: parentNameSchema,
+    guardianName: guardianNameSchema,
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required to update' });

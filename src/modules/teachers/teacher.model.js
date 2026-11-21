@@ -6,8 +6,6 @@ const teacherSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User id is required'],
-      unique: true,
-      index: true,
     },
     qualification: {
       type: String,
@@ -41,5 +39,7 @@ const teacherSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+teacherSchema.index({ userId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Teacher', teacherSchema);
