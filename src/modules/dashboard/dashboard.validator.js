@@ -1,22 +1,23 @@
-const Joi = require('joi');
+const { z } = require('zod');
 
-const dashboardQuerySchema = Joi.object({
-  hall: Joi.string().hex().length(24).required().messages({
-    'string.hex': 'Invalid hall ID',
-    'string.length': 'Invalid hall ID',
-    'any.required': 'Hall ID is required',
-    'string.empty': 'Hall ID is required',
-  }),
-  month: Joi.string()
-    .pattern(/^\d{4}-(0[1-9]|1[0-2])$/)
-    .required()
-    .messages({
-      'string.pattern.base': 'Month must be YYYY-MM',
-      'any.required': 'Month is required',
-      'string.empty': 'Month is required',
-    }),
-}).unknown(false);
+const reqString = (requiredMsg, typeMsg) => z.string({ error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg) });
 
-module.exports = {
-  dashboardQuerySchema,
-};
+const dateField = reqString('Date is required', 'Date must be a string')
+  .trim()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'Date must be YYYY-MM-DD format');
+
+const monthKeyField = reqString('Month key is required', 'Month key must be a string')
+  .trim()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Month key must be YYYY-MM format');
+
+// GET /api/v1/dashboard/admin?date=&monthKey=
+// GET /api/v1/dashboard/teacher?date=&monthKey=
+// GET /api/v1/dashboard/student?monthKey=
+const getDashboardQuerySchema = z
+  .object({
+    date: dateField.optional(),
+    monthKey: monthKeyField.optional(),
+  })
+  .strict();
+
+module.exports = { getDashboardQuerySchema };

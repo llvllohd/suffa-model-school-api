@@ -26,8 +26,7 @@ const markSheetRoutes = require('@/modules/markSheets/markSheet.routes');
 const progressReportRoutes = require('@/modules/progressReports/progressReport.routes');
 const studentAttendanceRoutes = require('@/modules/studentAttendance/studentAttendance.routes');
 const teacherAttendanceRoutes = require('@/modules/teacherAttendance/teacherAttendance.routes');
-// const examRoutes = require('@/modules/exams/exam.routes');
-// const dashboardRoutes = require('@/modules/dashboard/dashboard.routes');
+const dashboardRoutes = require('@/modules/dashboard/dashboard.routes');
 
 const app = express();
 
@@ -92,8 +91,7 @@ app.use('/api/v1/mark-sheets', markSheetRoutes); // CRUD mark sheets
 app.use('/api/v1/progress-reports', progressReportRoutes); // Progress reports
 app.use('/api/v1/student-attendance', studentAttendanceRoutes); // Student attendance - Teacher takes, Admin/Teacher view, Student views own
 app.use('/api/v1/teacher-attendance', teacherAttendanceRoutes); // Teacher attendance - Admin takes, Teacher views own
-// app.use('/api/v1/exams', examRoutes); // Exams, marks, report card
-// app.use('/api/v1/admin/dashboard', dashboardRoutes); // Total students, teachers, fees stats
+app.use('/api/v1/dashboard', dashboardRoutes); // Admin/Teacher/Student dashboards
 
 // ==================== 8. UNKNOWN ROUTE HANDLER ====================
 // If no route matched above, throw 404 (must be after all routes)
