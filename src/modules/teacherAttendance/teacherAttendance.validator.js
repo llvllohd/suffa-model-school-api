@@ -39,6 +39,7 @@ const upsertTeacherAttendanceSchema = z
   .strict();
 
 // GET /api/v1/teacher-attendance?date=&monthKey=
+// FIX: date and monthKey cannot be sent together - old code silently ignored monthKey when date was sent
 const getTeacherAttendanceQuerySchema = z
   .object({
     date: dateField.optional(),
@@ -46,7 +47,8 @@ const getTeacherAttendanceQuerySchema = z
     page: z.coerce.number().int().min(1).default(1).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(10).optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => !(data.date && data.monthKey), { message: 'Send either date or monthKey, not both' });
 
 // GET /api/v1/teacher-attendance/my?monthKey=2026-11
 const getMyTeacherAttendanceQuerySchema = z.object({ monthKey: monthKeyField }).strict();

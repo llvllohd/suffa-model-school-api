@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-// --- Helper - V4 - SAME as category.validator.js ---
+// Helper - V4 - SAME as category.validator.js
 const reqString = (requiredMsg, typeMsg) =>
   z.string({
     error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
@@ -12,7 +12,7 @@ const objectIdField = (fieldName) =>
     .min(1, `${fieldName} is required`)
     .regex(/^[0-9a-fA-F]{24}$/, `${fieldName} is invalid`);
 
-// ✅ Same as Category - min 2, not 1 like Class
+// Same as Category - min 2, not 1 like Class
 const nameField = reqString('Subject name is required', 'Subject name must be a string')
   .trim()
   .min(2, 'Subject name must be at least 2 characters')
@@ -38,8 +38,8 @@ const defaultCategoriesField = z.array(defaultCategoryItem).max(20, 'Cannot have
 
 const createSubjectSchema = z.object({ name: nameField, defaultCategories: defaultCategoriesField }).strict();
 
-// ✅ PATCH - Both optional, but at least 1 required
-// { "name": "English" } ✅ | { "defaultCategories": [...] } ✅ | { "defaultCategories": [] } ✅ - Clear all | {} ❌
+// PATCH - Both optional, but at least 1 required
+// { "name": "English" } - valid | { "defaultCategories": [...] } - valid | { "defaultCategories": [] } - valid, Clear all | {} - invalid
 const updateSubjectSchema = z
   .object({
     name: nameField.optional(),

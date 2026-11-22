@@ -7,13 +7,26 @@ const {
   updateSubjectAllocation,
   deleteSubjectAllocation,
 } = require('./subjectAllocation.controller');
-const { createSubjectAllocationSchema, updateSubjectAllocationSchema, subjectAllocationParamsSchema } = require('./subjectAllocation.validator');
+const {
+  createSubjectAllocationSchema,
+  updateSubjectAllocationSchema,
+  subjectAllocationQuerySchema,
+  subjectAllocationParamsSchema,
+} = require('./subjectAllocation.validator');
 const { validate } = require('@/middlewares/validate.middleware');
 const { isAuthenticatedUser, authorizeRoles } = require('@/middlewares/auth.middleware');
 const asyncHandlerMiddleware = require('@/middlewares/asyncHandler.middleware');
 
 router.post('/', isAuthenticatedUser, authorizeRoles('admin'), validate(createSubjectAllocationSchema), asyncHandlerMiddleware(createSubjectAllocation));
-router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), asyncHandlerMiddleware(getSubjectAllocations));
+
+// GET list - Query validator added, invalid classId / subjectId / page / limit now returns 400, not 500
+router.get(
+  '/',
+  isAuthenticatedUser,
+  authorizeRoles('admin', 'teacher'),
+  validate(subjectAllocationQuerySchema, 'query'),
+  asyncHandlerMiddleware(getSubjectAllocations),
+);
 router.get(
   '/:id',
   isAuthenticatedUser,

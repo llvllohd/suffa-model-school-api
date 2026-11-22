@@ -82,7 +82,7 @@ router.post(
 );
 
 // POST /api/v1/subject-assignments/:id/unshare - Admin, Main Teacher
-// Completed ka bhi unshare allowed hai
+// Unshare of a completed assignment is also allowed
 router.post(
   '/:id/unshare',
   isAuthenticatedUser,

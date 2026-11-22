@@ -33,13 +33,15 @@ exports.loginUser = async (req, res, next) => {
 exports.forgotPassword = async (req, res, next) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
-  if (!user) {
-    // Same response whether user exists or not - prevents user enumeration
+  // Same response whether user exists or not - prevents user enumeration
+  // Inactive users do not receive a reset link
+  if (!user || !user.isActive) {
     return ApiResponse.send(res, 200, null, 'An email has been sent successfully.');
   }
   const resetToken = user.generateResetPasswordToken();
   await user.save({ validateBeforeSave: false });
   const resetPasswordUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  // Try / catch is for recovery here - clear the saved token if email fails, then forward the error
   try {
     await sendEmail({ mail: user.email, resetPasswordUrl });
     return ApiResponse.send(res, 200, null, 'An email has been sent successfully.');
@@ -55,11 +57,14 @@ exports.forgotPassword = async (req, res, next) => {
 exports.forgotPasswordOtp = async (req, res, next) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
-  if (!user) {
+  // Same response whether user exists or not - prevents user enumeration
+  // Inactive users do not receive an OTP
+  if (!user || !user.isActive) {
     return ApiResponse.send(res, 200, null, 'An OTP has been sent successfully.');
   }
   const otp = user.generateOTP();
   await user.save({ validateBeforeSave: false });
+  // Try / catch is for recovery here - clear the saved OTP if email fails, then forward the error
   try {
     await sendOtp({ mail: user.email, otp });
     return ApiResponse.send(res, 200, null, 'An OTP has been sent successfully.');
@@ -77,7 +82,7 @@ exports.resetPassword = async (req, res, next) => {
   const { password } = req.body;
   const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
   const user = await User.findOne({ resetPasswordToken, resetPasswordExpire: { $gt: Date.now() } });
-  if (!user) return next(new ApiError('Your password reset link is invalid or has been expired.', 400));
+  if (!user || !user.isActive) return next(new ApiError('Your password reset link is invalid or has been expired.', 400));
 
   user.password = password;
   user.resetPasswordToken = undefined;
@@ -94,7 +99,7 @@ exports.resetPassword = async (req, res, next) => {
 exports.verifyOtp = async (req, res, next) => {
   const { email, otp } = req.body;
   const user = await User.findOne({ email }).select('+resetPasswordOtp +resetPasswordOtpExpire');
-  if (!user || !user.verifyOTP(otp)) {
+  if (!user || !user.isActive || !user.verifyOTP(otp)) {
     return next(new ApiError('OTP is invalid or has expired.', 400));
   }
   // Clear OTP immediately - single use only
@@ -114,6 +119,7 @@ exports.verifyOtp = async (req, res, next) => {
 exports.resetPasswordWithOtp = async (req, res, next) => {
   const { otpSessionToken, password } = req.body;
   let decoded;
+  // Try / catch is for recovery here - convert JWT error into a friendly 400
   try {
     decoded = jwt.verify(otpSessionToken, process.env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch {
@@ -123,14 +129,15 @@ exports.resetPasswordWithOtp = async (req, res, next) => {
     return next(new ApiError('Session expired. Please request a new OTP.', 400));
   }
   const user = await User.findById(decoded.id);
-  if (!user) return next(new ApiError('Session expired. Please request a new OTP.', 400));
+  if (!user || !user.isActive) return next(new ApiError('Session expired. Please request a new OTP.', 400));
 
   user.password = password;
   user.refreshTokenVersion = (user.refreshTokenVersion || 0) + 1;
   user.loginAttempts = 0;
   user.lockUntil = undefined;
   await user.save();
-  return sendToken(user, 200, res, 'Your password has been changed successfully'); // ✅ return
+  // Return the sendToken result so the response is sent once
+  return sendToken(user, 200, res, 'Your password has been changed successfully');
 };
 
 // Refresh Token
@@ -140,6 +147,7 @@ exports.refreshToken = async (req, res, next) => {
     return next(new ApiError('Your session has timed out. Please login.', 401));
   }
   let decoded;
+  // Try / catch is for recovery here - convert JWT error into a friendly 401
   try {
     decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] });
   } catch {

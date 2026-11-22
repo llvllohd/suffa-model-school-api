@@ -41,8 +41,8 @@ const subjectSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// ✅ Same as Category / Class - Partial + Case-insensitive - Only active names unique, deleted can be reused
-// English == english, Deleted English can be recreated
+// Same as Category / Class - Partial + Case-insensitive - Only active names unique, deleted can be reused
+// Example: English == english, a deleted English can be recreated
 subjectSchema.index({ name: 1 }, { unique: true, partialFilterExpression: { isActive: true }, collation: { locale: 'en', strength: 2 } });
 
 module.exports = mongoose.model('Subject', subjectSchema);

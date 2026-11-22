@@ -5,8 +5,9 @@ const { formatTeacher } = require('../teachers/teacher.helper');
 
 // Build effective categories map - categoryId -> { name, maxMarks, order }
 // Uses subject defaults - removed + categoriesOverride
-const getAssignmentEffectiveMap = async (assignmentId, { allowCompleted = false } = {}) => {
+const getAssignmentEffectiveMap = async (assignmentId, { allowCompleted = false, session = null } = {}) => {
   const assignment = await SubjectAssignment.findOne({ _id: assignmentId, isActive: true })
+    .session(session)
     .populate('allocationId', 'subjectId classId sectionIds semesters')
     .populate({
       path: 'allocationId.subjectId',

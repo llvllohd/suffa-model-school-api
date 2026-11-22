@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-// --- Helper - V4 - Same pattern as category nameField ---
+// --- Helper - Same pattern as category nameField ---
 const reqString = (requiredMsg, typeMsg) =>
   z.string({
     error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
@@ -14,7 +14,7 @@ const emailSchema = reqString('Email is required', 'Email must be a string')
   .email('Please enter a valid email');
 
 const passwordSchema = reqString('Password is required', 'Password must be a string')
-  .min(6, 'Password should have atleast 6 characters')
+  .min(6, 'Password should have at least 6 characters')
   .max(128, 'Password must be less than 128 characters');
 
 // Phone - Required, always stored as 10-digit

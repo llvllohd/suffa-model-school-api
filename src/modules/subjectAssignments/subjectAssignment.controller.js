@@ -1,5 +1,6 @@
 const SubjectAssignment = require('./subjectAssignment.model');
 const SubjectAllocation = require('../subjectAllocations/subjectAllocation.model');
+const MarkSheet = require('../markSheets/markSheet.model');
 const ApiError = require('@/utils/apiError');
 const ApiResponse = require('@/utils/apiResponse');
 const paginate = require('@/utils/paginate');
@@ -23,7 +24,7 @@ exports.createSubjectAssignment = async (req, res, next) => {
     .populate({
       path: 'subjectId.defaultCategories.categoryId',
       select: 'name',
-      match: { isActive: true }, // ✅ ADDED
+      match: { isActive: true },
     })
     .lean();
   if (!allocation) return next(new ApiError('Allocation not found', 404));
@@ -56,7 +57,7 @@ exports.createSubjectAssignment = async (req, res, next) => {
       calendarMonth,
       academicYear,
       // SNAPSHOT - Copy from Allocation at creation time
-      // Allocation me Teacher baad me badal bhi gaya, to ye Assignment purane Teacher ka hi rahega
+      // Even if the Allocation teacher changes later, this Assignment stays with the old Teacher
       mainTeacherId: allocation.mainTeacherId, // SNAPSHOT
       categoriesOverride: normalized ?? [],
       removedCategoryIds: removed ?? [],
@@ -77,9 +78,17 @@ exports.getSubjectAssignments = async (req, res, next) => {
   let filter = { isActive: true };
   if (req.user.role === 'teacher') {
     const teacherId = await getTeacherIdFromUser(req.user.id);
+    const now = new Date();
+    // Flattened filter, no nested $or, $gte used for share expiry to match isShareExpired and attendance checks
+    // Shared assignment is visible only when share has no expiry, or expiry is in the future
     filter = {
       ...filter,
-      $or: [{ mainTeacherId: teacherId }, { sharedToTeacherId: teacherId, $or: [{ sharedUntil: null }, { sharedUntil: { $gt: new Date() } }] }],
+      $or: [
+        { mainTeacherId: teacherId },
+        { sharedToTeacherId: teacherId, sharedUntil: null },
+        { sharedToTeacherId: teacherId, sharedUntil: { $exists: false } },
+        { sharedToTeacherId: teacherId, sharedUntil: { $gte: now } },
+      ],
     };
   }
   // req.query is already validated + coerced by getSubjectAssignmentsQuerySchema - no NaN risk
@@ -145,7 +154,14 @@ exports.updateSubjectAssignment = async (req, res, next) => {
   }
 
   if (categoriesOverride !== undefined || removedCategoryIds !== undefined) {
-    // TODO - Block if Marks exist - Add when Marks module is ready
+    // BLOCK - MarkSheets already exist for this Assignment
+    // Changing categories now would invalidate entered marks and break totals
+    // MarkSheet has no isActive, so a plain exists check is enough
+    const hasMarkSheets = await MarkSheet.exists({ assignmentId: assignment._id });
+    if (hasMarkSheets) {
+      return next(new ApiError('Cannot change categories - Marks already exist for this Assignment', 409));
+    }
+
     // Convert Mongoose sub-documents to plain objects before validation
     const effectiveOverride =
       categoriesOverride !== undefined
@@ -157,7 +173,7 @@ exports.updateSubjectAssignment = async (req, res, next) => {
       .populate({
         path: 'subjectId.defaultCategories.categoryId',
         select: 'name',
-        match: { isActive: true }, // ✅ ADDED
+        match: { isActive: true },
       })
       .lean();
     const subjectDefaults = (allocation?.subjectId?.defaultCategories || []).filter((c) => c.categoryId);
@@ -168,6 +184,8 @@ exports.updateSubjectAssignment = async (req, res, next) => {
     assignment.categoriesOverride = normalized ?? [];
     assignment.removedCategoryIds = removed ?? [];
   }
+  // Status change is still allowed even when MarkSheets exist
+  // Example: pending -> completed after marks are entered
   if (status !== undefined) assignment.status = status;
 
   await assignment.save();
@@ -177,13 +195,19 @@ exports.updateSubjectAssignment = async (req, res, next) => {
 
 // DELETE - Soft Delete - Admin Only
 exports.deleteSubjectAssignment = async (req, res, next) => {
+  // BLOCK - MarkSheets already exist for this Assignment
+  // Deleting would orphan marks and break Progress Report
+  const hasMarkSheets = await MarkSheet.exists({ assignmentId: req.params.id });
+  if (hasMarkSheets) {
+    return next(new ApiError('Cannot delete Assignment - Marks already exist for this Assignment', 409));
+  }
+
   const deleted = await SubjectAssignment.findOneAndUpdate(
     { _id: req.params.id, isActive: true },
     { $set: { isActive: false, sharedToTeacherId: null, sharedUntil: null, sharedBy: null } },
     { new: true },
   );
   if (!deleted) return next(new ApiError('Assignment not found', 404));
-  // TODO - Block if Marks exist - Add when Marks module is ready
   return ApiResponse.send(res, 200, null, 'Assignment deleted successfully');
 };
 

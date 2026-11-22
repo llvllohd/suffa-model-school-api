@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const MarkSheet = require('./markSheet.model');
 const Student = require('../students/student.model');
 const ApiError = require('@/utils/apiError');
@@ -21,64 +22,81 @@ const checkTeacherAccess = async (assignment, req) => {
 
 // POST /api/v1/mark-sheets/bulk - Teacher fills full class in one call
 // Role: teacher only - Admin cannot fill marks
+// Transaction - All or nothing: 1 student fail = kisi ka bhi save nahi hoga
 exports.bulkUpsertMarkSheets = async (req, res, next) => {
   const { assignmentId, sheets } = req.body;
 
-  const { assignment, effectiveMap } = await getAssignmentEffectiveMap(assignmentId);
-  const teacherId = await checkTeacherAccess(assignment, req);
+  const session = await mongoose.startSession();
+  try {
+    let resultIds = [];
 
-  const monthKey = getMonthKey(assignment);
-  const results = [];
+    await session.withTransaction(async () => {
+      const { assignment, effectiveMap } = await getAssignmentEffectiveMap(assignmentId, { session });
+      const teacherId = await checkTeacherAccess(assignment, req);
 
-  // FIX: Duplicate student in same bulk call - reject before any save
-  const seenStudents = new Set();
-  for (const sheet of sheets) {
-    const key = String(sheet.studentId);
-    if (seenStudents.has(key)) throw new ApiError(`Duplicate student in sheets: ${sheet.studentId}`, 400);
-    seenStudents.add(key);
+      const monthKey = getMonthKey(assignment);
+      const results = [];
+
+      // FIX: Duplicate student in same bulk call - reject before any save
+      const seenStudents = new Set();
+      for (const sheet of sheets) {
+        const key = String(sheet.studentId);
+        if (seenStudents.has(key)) throw new ApiError(`Duplicate student in sheets: ${sheet.studentId}`, 400);
+        seenStudents.add(key);
+      }
+
+      const allocationSectionIds = (assignment.allocationId?.sectionIds || []).map((id) => String(id));
+
+      for (const sheet of sheets) {
+        const student = await Student.findOne({ _id: sheet.studentId }).session(session).populate('userId', 'isActive').lean();
+        if (!student) throw new ApiError(`Student not found: ${sheet.studentId}`, 404);
+        if (!student.userId?.isActive) throw new ApiError('Student is not active', 400);
+        // Student must belong to same class as allocation
+        if (String(student.classId) !== String(assignment.allocationId.classId)) {
+          throw new ApiError('Student does not belong to this allocation class', 400);
+        }
+        // FIX: Student must belong to one of allocation sections
+        if (!allocationSectionIds.includes(String(student.sectionId))) {
+          throw new ApiError('Student does not belong to this allocation section', 400);
+        }
+
+        const normalized = validateMarks(sheet.marks, effectiveMap);
+        const existing = await MarkSheet.findOne({ assignmentId, studentId: sheet.studentId, monthKey, semester: assignment.semester }).session(session);
+
+        if (existing) {
+          existing.marks = normalized;
+          existing.enteredByTeacherId = teacherId;
+          existing.enteredAt = new Date();
+          await existing.save({ session });
+          results.push(existing._id);
+        } else {
+          const created = await MarkSheet.create(
+            [
+              {
+                assignmentId,
+                studentId: sheet.studentId,
+                classId: student.classId,
+                sectionId: student.sectionId,
+                semester: assignment.semester,
+                monthKey,
+                enteredByTeacherId: teacherId,
+                marks: normalized,
+              },
+            ],
+            { session },
+          );
+          results.push(created[0]._id);
+        }
+      }
+      resultIds = results;
+    });
+
+    // Populate AFTER commit - transaction ke andar populate mat karo
+    const docs = await populateMarkSheet(MarkSheet.find({ _id: { $in: resultIds } })).lean();
+    return ApiResponse.send(res, 200, { markSheets: docs.map(formatMarkSheet) }, 'Marks saved successfully');
+  } finally {
+    await session.endSession();
   }
-
-  const allocationSectionIds = (assignment.allocationId?.sectionIds || []).map((id) => String(id));
-
-  for (const sheet of sheets) {
-    const student = await Student.findOne({ _id: sheet.studentId }).populate('userId', 'isActive').lean();
-    if (!student) throw new ApiError(`Student not found: ${sheet.studentId}`, 404);
-    if (!student.userId?.isActive) throw new ApiError('Student is not active', 400);
-    // Student must belong to same class as allocation
-    if (String(student.classId) !== String(assignment.allocationId.classId)) {
-      throw new ApiError('Student does not belong to this allocation class', 400);
-    }
-    // FIX: Student must belong to one of allocation sections
-    if (!allocationSectionIds.includes(String(student.sectionId))) {
-      throw new ApiError('Student does not belong to this allocation section', 400);
-    }
-
-    const normalized = validateMarks(sheet.marks, effectiveMap);
-    const existing = await MarkSheet.findOne({ assignmentId, studentId: sheet.studentId, monthKey, semester: assignment.semester });
-
-    if (existing) {
-      existing.marks = normalized;
-      existing.enteredByTeacherId = teacherId;
-      existing.enteredAt = new Date();
-      await existing.save();
-      results.push(existing._id);
-    } else {
-      const created = await MarkSheet.create({
-        assignmentId,
-        studentId: sheet.studentId,
-        classId: student.classId,
-        sectionId: student.sectionId,
-        semester: assignment.semester,
-        monthKey,
-        enteredByTeacherId: teacherId,
-        marks: normalized,
-      });
-      results.push(created._id);
-    }
-  }
-
-  const docs = await populateMarkSheet(MarkSheet.find({ _id: { $in: results } })).lean();
-  return ApiResponse.send(res, 200, { markSheets: docs.map(formatMarkSheet) }, 'Marks saved successfully');
 };
 
 // GET /api/v1/mark-sheets?assignmentId=...&monthKey=... - Admin: all, Teacher: only own assignment, Student: only own

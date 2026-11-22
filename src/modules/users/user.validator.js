@@ -14,7 +14,7 @@ const emailSchema = reqString('Email is required', 'Email must be a string')
   .email('Please enter a valid email');
 
 const passwordSchema = reqString('Password is required', 'Password must be a string')
-  .min(6, 'Password should have atleast 6 characters')
+  .min(6, 'Password should have at least 6 characters')
   .max(128, 'Password must be less than 128 characters');
 
 const phoneSchema = reqString('Phone is required', 'Phone must be a string')
@@ -32,7 +32,7 @@ const phoneSchema = reqString('Phone is required', 'Phone must be a string')
 const nameSchema = reqString('Name is required', 'Name must be a string')
   .trim()
   .min(1, 'Name is required')
-  .min(2, 'Name must be atleast 2 characters')
+  .min(2, 'Name must be at least 2 characters')
   .max(50, 'Name cannot exceed 50 characters');
 
 const classIdSchema = reqString('Class is required', 'Class id must be a string')
@@ -158,6 +158,18 @@ const createUserSchema = z
     }
   });
 
+// --- UPDATE PASSWORD - Any logged-in user ---
+const updatePasswordSchema = z
+  .object({
+    oldPassword: reqString('Old password is required', 'Old password must be a string'),
+    newPassword: passwordSchema,
+  })
+  .strict()
+  .refine((data) => data.oldPassword !== data.newPassword, {
+    message: 'New password must be different from old password',
+    path: ['newPassword'],
+  });
+
 // --- UPDATE USER - Admin Only ---
 const updateUserSchema = z
   .object({
@@ -186,6 +198,7 @@ const userParamsSchema = z
 
 module.exports = {
   createUserSchema,
+  updatePasswordSchema,
   updateUserSchema,
   userParamsSchema,
 };

@@ -29,40 +29,53 @@ exports.upsertTeacherAttendance = async (req, res, next) => {
     normalizedRecords.push({
       teacherId: record.teacherId,
       status: record.status,
-      // Present pe reason ka matlab nahi - sirf Absent pe save karo
-      // Leave ho to reason me likho: "Sick Leave" / "Personal Leave"
+      // Reason has no meaning for Present - save reason only for Absent
+      // For Leave, write reason like: "Sick Leave" / "Personal Leave"
       reason: record.status === 'Absent' ? record.reason || '' : '',
     });
   }
 
   // Partial records = data loss - Full staff is required
-  const allActiveTeachers = await Teacher.find({}).populate('userId', 'isActive').lean();
-  const expectedCount = allActiveTeachers.filter((t) => t.userId?.isActive !== false).length;
+  const allTeachers = await Teacher.find({}).populate('userId', 'isActive').lean();
+  // Count only teachers whose linked User is active
+  const expectedCount = allTeachers.filter((t) => t.userId?.isActive === true).length;
   if (records.length !== expectedCount) {
     throw new ApiError(`Attendance for all ${expectedCount} teachers is required, got ${records.length}`, 400);
   }
 
-  const existing = await TeacherAttendance.findOne({ date });
+  // Check if this date already exists, only to decide 200 vs 201 status code
+  const alreadyExists = await TeacherAttendance.exists({ date });
 
-  if (existing) {
-    existing.records = normalizedRecords;
-    existing.takenByAdminId = req.user.id;
-    await existing.save();
-    const doc = await populateTeacherAttendance(TeacherAttendance.findById(existing._id)).lean();
+  // Totals are calculated manually here
+  // findOneAndUpdate does not trigger pre-save hook, so totals would stay 0 without this
+  const totalPresent = normalizedRecords.filter((r) => r.status === 'Present').length;
+  const totalAbsent = normalizedRecords.filter((r) => r.status === 'Absent').length;
+
+  // Atomic upsert - No try / catch needed, no 11000 handling needed
+  // MongoDB handles the race: if 2 Admins POST same date, one inserts, one updates
+  // Any throw here is caught by asyncHandlerMiddleware in the route and sent to errorHandler
+  const saved = await TeacherAttendance.findOneAndUpdate(
+    { date },
+    {
+      $set: {
+        records: normalizedRecords,
+        takenByAdminId: req.user.id,
+        totalPresent,
+        totalAbsent,
+      },
+    },
+    { upsert: true, new: true, runValidators: true },
+  );
+
+  const doc = await populateTeacherAttendance(TeacherAttendance.findById(saved._id)).lean();
+  if (alreadyExists) {
     return ApiResponse.send(res, 200, { attendance: formatTeacherAttendance(doc) }, 'Teacher attendance updated successfully');
   }
-
-  const created = await TeacherAttendance.create({
-    date,
-    takenByAdminId: req.user.id,
-    records: normalizedRecords,
-  });
-  const doc = await populateTeacherAttendance(TeacherAttendance.findById(created._id)).lean();
   return ApiResponse.send(res, 201, { attendance: formatTeacherAttendance(doc) }, 'Teacher attendance saved successfully');
 };
 
 // GET /api/v1/teacher-attendance?date=&monthKey= - Admin only
-// Teacher dusre teachers ki attendance nahi dekh sakta - privacy
+// Teacher cannot view other teachers attendance - privacy
 exports.getTeacherAttendance = async (req, res, next) => {
   const filter = {};
   if (req.query.date) filter.date = req.query.date;
@@ -124,7 +137,7 @@ exports.getMyTeacherAttendance = async (req, res, next) => {
 exports.getTeacherAttendanceSummary = async (req, res, next) => {
   const { teacherId, monthKey } = req.query;
 
-  // Teacher sirf apni dekh sakta hai
+  // Teacher can only view own attendance
   if (req.user.role === 'teacher') {
     const myTeacherId = await getTeacherIdFromUser(req.user.id);
     if (String(myTeacherId) !== String(teacherId)) {

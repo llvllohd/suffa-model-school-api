@@ -84,6 +84,7 @@ exports.upsertStudentAttendance = async (req, res, next) => {
     if (!allocationSectionIds.includes(String(student.sectionId))) {
       throw new ApiError('Student does not belong to this allocation section', 400);
     }
+    // FIX: Only sectionId goes in this Set - studentId here made size > 1 always
     sectionIdsInCall.add(String(student.sectionId));
     normalizedRecords.push({
       studentId: record.studentId,
@@ -105,25 +106,33 @@ exports.upsertStudentAttendance = async (req, res, next) => {
     throw new ApiError(`Attendance for all ${expectedCount} students is required, got ${records.length}`, 400);
   }
 
-  const existing = await StudentAttendance.findOne({ classId, sectionId, date });
+  // FIX: Atomic upsert - findOne + create race ko khatam karta hai
+  // 2 concurrent POST ab 11000 nahi denge, dusra update ban jayega
+  // NOTE: findOneAndUpdate pre('save') trigger nahi karta, isliye totals yahin calculate karo
+  const totalPresent = normalizedRecords.filter((r) => r.status === 'Present').length;
+  const totalAbsent = normalizedRecords.filter((r) => r.status === 'Absent').length;
 
-  if (existing) {
-    existing.records = normalizedRecords;
-    existing.takenByTeacherId = teacherId;
-    await existing.save();
-    const doc = await populateAttendance(StudentAttendance.findById(existing._id)).lean();
-    return ApiResponse.send(res, 200, { attendance: formatAttendance(doc) }, 'Student attendance updated successfully');
+  const existed = await StudentAttendance.exists({ classId, sectionId, date });
+
+  const doc = await StudentAttendance.findOneAndUpdate(
+    { classId, sectionId, date },
+    {
+      $set: {
+        records: normalizedRecords,
+        takenByTeacherId: teacherId,
+        totalPresent,
+        totalAbsent,
+      },
+      $setOnInsert: { classId, sectionId, date },
+    },
+    { new: true, upsert: true, runValidators: true },
+  );
+
+  const populated = await populateAttendance(StudentAttendance.findById(doc._id)).lean();
+  if (existed) {
+    return ApiResponse.send(res, 200, { attendance: formatAttendance(populated) }, 'Student attendance updated successfully');
   }
-
-  const created = await StudentAttendance.create({
-    classId,
-    sectionId,
-    date,
-    takenByTeacherId: teacherId,
-    records: normalizedRecords,
-  });
-  const doc = await populateAttendance(StudentAttendance.findById(created._id)).lean();
-  return ApiResponse.send(res, 201, { attendance: formatAttendance(doc) }, 'Student attendance saved successfully');
+  return ApiResponse.send(res, 201, { attendance: formatAttendance(populated) }, 'Student attendance saved successfully');
 };
 
 // GET /api/v1/student-attendance?classId=&sectionId=&date=&monthKey= - Admin: all, Teacher: own class
@@ -183,9 +192,10 @@ exports.getMyAttendance = async (req, res, next) => {
   const student = await Student.findOne({ userId: req.user.id }).lean();
   if (!student) return next(new ApiError('Student profile not found', 404));
 
+  // FIX: Filter by records.studentId, not current class/section
+  // Student ne mid-month class/section change kiya to bhi purani attendance milegi
   const docs = await StudentAttendance.find({
-    classId: student.classId,
-    sectionId: student.sectionId,
+    'records.studentId': student._id,
     date: { $regex: `^${monthKey}` },
   }).lean();
 
@@ -234,9 +244,9 @@ exports.getAttendanceSummary = async (req, res, next) => {
     if (!allowed) return next(new ApiError('Not authorized to view this student attendance', 403));
   }
 
+  // FIX: Same as my - records.studentId se dhoondo, current class/section se nahi
   const docs = await StudentAttendance.find({
-    classId: student.classId,
-    sectionId: student.sectionId,
+    'records.studentId': studentId,
     date: { $regex: `^${monthKey}` },
   }).lean();
 

@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 
 const { getStudents, getStudentById, updateStudent, deleteStudent } = require('./student.controller');
-const { updateStudentSchema, studentParamsSchema } = require('./student.validator');
+const { updateStudentSchema, studentParamsSchema, studentQuerySchema } = require('./student.validator');
 const { validate } = require('@/middlewares/validate.middleware');
 const { isAuthenticatedUser, authorizeRoles } = require('@/middlewares/auth.middleware');
 const asyncHandlerMiddleware = require('@/middlewares/asyncHandler.middleware');
 
 // GET /api/v1/students - Admin, Teacher
-router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), asyncHandlerMiddleware(getStudents));
+// Query validator added - Invalid classId / sectionId now returns 400, not 500
+router.get('/', isAuthenticatedUser, authorizeRoles('admin', 'teacher'), validate(studentQuerySchema, 'query'), asyncHandlerMiddleware(getStudents));
 
 // GET /api/v1/students/:id - Admin, Teacher, Student (Own only)
 router.get(

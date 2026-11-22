@@ -22,7 +22,7 @@ const classSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// ✅ Same as Category - Partial + Case-insensitive - Only active names unique, deleted can be reused
+// Same as Category - Partial + Case-insensitive - Only active names unique, deleted can be reused
 // Class 1 == class 1, Deleted Class 1 can be recreated
 classSchema.index({ name: 1 }, { unique: true, partialFilterExpression: { isActive: true }, collation: { locale: 'en', strength: 2 } });
 

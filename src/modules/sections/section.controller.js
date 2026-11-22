@@ -1,5 +1,7 @@
 const Section = require('./section.model');
 const ClassModel = require('../classes/class.model');
+const Student = require('../students/student.model');
+const SubjectAllocation = require('../subjectAllocations/subjectAllocation.model');
 const ApiError = require('@/utils/apiError');
 const ApiResponse = require('@/utils/apiResponse');
 
@@ -61,12 +63,14 @@ exports.deleteSection = async (req, res, next) => {
     return next(new ApiError('Section not found', 404));
   }
 
-  // USED check - Add when Student / Assignment exist
-  // const usedInStudent = await User.findOne({ sectionId: section._id, isActive: true, role: 'student' });
-  // const usedInAssignment = await SubjectAssignment.findOne({ sectionIds: section._id });
-  // if (usedInStudent || usedInAssignment) {
-  //   return next(new ApiError('Cannot delete. It is already used. Deactivate it instead.', 400));
-  // }
+  // ✅ USED check - Cannot delete a section that is already used
+  // Student: no isActive filter - even inactive student is history of this section
+  const usedInStudent = await Student.exists({ sectionId: section._id });
+  // Allocation: only active allocations block delete
+  const usedInAllocation = await SubjectAllocation.exists({ sectionIds: section._id, isActive: true });
+  if (usedInStudent || usedInAllocation) {
+    return next(new ApiError('Cannot delete section. It is already used by students or allocations.', 400));
+  }
 
   section.isActive = false;
   await section.save();

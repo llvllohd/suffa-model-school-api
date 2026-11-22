@@ -42,6 +42,17 @@ const updateSubjectAllocationSchema = z
   .strict()
   .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required to update' });
 
+// GET /api/v1/subject-allocations?classId=&subjectId=&page=&limit=
+// All optional, .strict() blocks ?foo=bar, invalid ids return 400 not 500
+const subjectAllocationQuerySchema = z
+  .object({
+    classId: objectIdField('Class').optional(),
+    subjectId: objectIdField('Subject').optional(),
+    page: z.coerce.number().int().min(1).default(1).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(10).optional(),
+  })
+  .strict();
+
 const subjectAllocationParamsSchema = z
   .object({
     id: reqString('Allocation id is required', 'Allocation id must be a string')
@@ -54,5 +65,6 @@ const subjectAllocationParamsSchema = z
 module.exports = {
   createSubjectAllocationSchema,
   updateSubjectAllocationSchema,
+  subjectAllocationQuerySchema,
   subjectAllocationParamsSchema,
 };

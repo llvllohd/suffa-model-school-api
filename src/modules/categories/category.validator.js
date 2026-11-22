@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-// --- Helper - V4 - SAME as auth.validator.js + user.validator.js ---
+// Helper - V4 - Same as auth.validator.js + user.validator.js
 const reqString = (requiredMsg, typeMsg) =>
   z.string({
     error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
@@ -9,12 +9,12 @@ const reqString = (requiredMsg, typeMsg) =>
 const nameField = reqString('Category name is required', 'Category name must be a string')
   .trim()
   .min(1, 'Category name is required')
-  .min(2, 'Category name must be atleast 2 characters')
+  .min(2, 'Category name must be at least 2 characters')
   .max(50, 'Category name cannot exceed 50 characters');
 
 const createCategorySchema = z.object({ name: nameField }).strict();
 
-// ✅ PATCH - No isActive - isActive changes ONLY via DELETE endpoint
+// PATCH - No isActive - isActive changes ONLY via DELETE endpoint
 const updateCategorySchema = z.object({ name: nameField }).strict();
 
 const categoryParamsSchema = z

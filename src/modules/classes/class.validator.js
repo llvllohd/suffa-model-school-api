@@ -1,18 +1,18 @@
 const { z } = require('zod');
 
-// --- Helper - V4 - SAME as category.validator.js ---
+// Helper - V4 - Same as category.validator.js
 const reqString = (requiredMsg, typeMsg) =>
   z.string({
     error: (issue) => (issue.input === undefined ? requiredMsg : typeMsg || requiredMsg),
   });
 
-// ✅ Class names can be 1 char - "1", "2", "KG" - So min 1, not 2 like Category
+// Class names can be 1 char - "1", "2", "KG" - So min 1, not 2 like Category
 const nameField = reqString('Class name is required', 'Class name must be a string')
   .trim()
   .min(1, 'Class name is required')
   .max(50, 'Class name cannot exceed 50 characters');
 
-// ✅ Optional - Can be omitted, can be "" to clear it
+// Optional - Can be omitted, can be "" to clear it
 const descriptionField = z
   .string({ error: () => 'Class description must be a string' })
   .trim()

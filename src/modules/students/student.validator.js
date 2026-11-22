@@ -33,6 +33,14 @@ const addressField = reqString('Address is required', 'Address must be a string'
   .max(500, 'Address cannot exceed 500 characters')
   .optional();
 
+// GET /api/v1/students?classId=&sectionId= - Both optional, .strict() blocks ?foo=bar
+const studentQuerySchema = z
+  .object({
+    classId: objectIdField('Class').optional(),
+    sectionId: objectIdField('Section').optional(),
+  })
+  .strict();
+
 // PATCH - Admin can update name + profile fields only, email / phone / password not allowed here
 const updateStudentSchema = z
   .object({
@@ -65,4 +73,4 @@ const studentParamsSchema = z
   })
   .strict();
 
-module.exports = { updateStudentSchema, studentParamsSchema };
+module.exports = { updateStudentSchema, studentParamsSchema, studentQuerySchema };

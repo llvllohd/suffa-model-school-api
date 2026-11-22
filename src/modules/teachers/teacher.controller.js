@@ -43,29 +43,25 @@ exports.updateTeacher = async (req, res, next) => {
   if (!user || user.isActive === false) return next(new ApiError('Teacher not found', 404));
 
   // Transaction - Teacher + User must both succeed or both fail.
+  // withTransaction handles commit / abort / retry automatically.
+  // No try / catch needed here - any throw is caught by asyncHandlerMiddleware in the route.
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    // Update Teacher profile fields.
-    if (qualification !== undefined) teacher.qualification = qualification;
-    if (dateOfBirth !== undefined) teacher.dateOfBirth = dateOfBirth;
-    if (gender !== undefined) teacher.gender = gender;
-    if (address !== undefined) teacher.address = address;
-    await teacher.save({ session });
+    await session.withTransaction(async () => {
+      // Update Teacher profile fields.
+      if (qualification !== undefined) teacher.qualification = qualification;
+      if (dateOfBirth !== undefined) teacher.dateOfBirth = dateOfBirth;
+      if (gender !== undefined) teacher.gender = gender;
+      if (address !== undefined) teacher.address = address;
+      await teacher.save({ session });
 
-    // Name lives on User, not on the Teacher profile.
-    if (name !== undefined) {
-      await User.findByIdAndUpdate(teacher.userId, { name }, { runValidators: true, session });
-    }
-
-    await session.commitTransaction();
-  } catch (err) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    return next(err);
+      // Name lives on User, not on the Teacher profile.
+      if (name !== undefined) {
+        await User.findByIdAndUpdate(teacher.userId, { name }, { runValidators: true, session });
+      }
+    });
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 
   // Keep the response shape same as list / detail - includes `isActive` via populated User.

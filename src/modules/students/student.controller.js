@@ -76,7 +76,7 @@ exports.updateStudent = async (req, res, next) => {
     }
   }
 
-  // Admission Number duplicate check - Deleted user wale reuse ho sakte hai
+  // Admission Number duplicate check - Deleted user ones can be reused
   if (admissionNumber !== undefined) {
     const existingAdm = await Student.findOne({ admissionNumber, _id: { $ne: student._id } }).lean();
     if (existingAdm) {

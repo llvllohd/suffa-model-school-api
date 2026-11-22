@@ -80,10 +80,13 @@ studentSchema.pre('save', function (next) {
   next();
 });
 
-// Same Class + Same Section me Roll Number unique - Deleted (User inactive) wale reuse ho sakte hai
+// Same Class + Same Section Roll Number unique - Deleted (User inactive) ones can be reused
 // So no unique index here - Roll check in controller with User.isActive
 studentSchema.index({ classId: 1, sectionId: 1, rollNumber: 1 });
 studentSchema.index({ userId: 1 }, { unique: true });
-studentSchema.index({ admissionNumber: 1 }, { unique: true, sparse: true, partialFilterExpression: { admissionNumber: { $type: 'string' } } });
+// No unique index on admissionNumber - Deleted student number must be reusable
+// A unique index at DB level cannot check User.isActive, so duplicate check is only in controller
+// Same pattern as rollNumber
+studentSchema.index({ admissionNumber: 1 });
 
 module.exports = mongoose.model('Student', studentSchema);

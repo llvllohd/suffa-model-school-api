@@ -88,7 +88,9 @@ exports.getClassProgressReports = async (req, res, next) => {
   }
 
   // Fetch all sheets in a single query to avoid N+1 queries
-  const allSheets = await populateForReport(MarkSheet.find({ studentId: { $in: distinctStudents }, monthKey })).lean();
+  // FIX: Filter by classId + sectionId - otherwise a student who changed class/section
+  // mid-month would get old class sheets mixed into this class report
+  const allSheets = await populateForReport(MarkSheet.find({ studentId: { $in: distinctStudents }, classId, sectionId, monthKey })).lean();
 
   // Group sheets by studentId in memory
   const grouped = new Map();

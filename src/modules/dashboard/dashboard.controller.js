@@ -116,7 +116,12 @@ exports.getTeacherDashboard = async (req, res, next) => {
 
   const [myAllocations, myAssignments] = await Promise.all([
     SubjectAllocation.find({ isActive: true, mainTeacherId: teacherId }).lean(),
-    SubjectAssignment.find({ isActive: true, $or: [{ mainTeacherId: teacherId }, { sharedToTeacherId: teacherId }] }).lean(),
+    // Same rule as list API - Expired shared assignments are excluded
+    // sharedUntil = null means no expiry, sharedUntil > now means still shared
+    SubjectAssignment.find({
+      isActive: true,
+      $or: [{ mainTeacherId: teacherId }, { sharedToTeacherId: teacherId, $or: [{ sharedUntil: null }, { sharedUntil: { $gt: new Date() } }] }],
+    }).lean(),
   ]);
 
   // Count distinct class-sections from allocations

@@ -9,6 +9,7 @@ const ApiResponse = require('@/utils/apiResponse');
 const sendToken = require('@/utils/sendToken');
 const { mergeUserProfile } = require('@/utils/sanitize');
 
+// GET /api/v1/users/me - Any logged-in user
 exports.getMe = async (req, res, next) => {
   if (req.user.isActive === false) return next(new ApiError('User not found', 404));
 
@@ -62,17 +63,17 @@ exports.createUser = async (req, res, next) => {
     if (!cls) return next(new ApiError('Class not found', 404));
     if (!section) return next(new ApiError('Section not found or does not belong to this Class', 404));
 
-    // Same Class + Same Section me Roll Number duplicate nahi
+    // Roll number must be unique inside the same Class + same Section
     const rollExists = await StudentProfile.findOne({ classId, sectionId, rollNumber }).lean();
     if (rollExists) {
-      // Deleted (User inactive) wale ka Roll reuse ho sakta hai
+      // Roll number of a deleted (User inactive) student can be reused
       const rollUser = await User.findById(rollExists.userId).lean();
       if (rollUser && rollUser.isActive !== false) {
         return next(new ApiError(`Roll number ${rollNumber} already exists in this section`, 409));
       }
     }
 
-    // Admission Number duplicate check - Deleted user wale reuse ho sakte hai
+    // Admission Number duplicate check - Deleted user numbers can be reused
     if (admissionNumber) {
       const admExists = await StudentProfile.findOne({ admissionNumber }).lean();
       if (admExists) {
@@ -85,43 +86,41 @@ exports.createUser = async (req, res, next) => {
   }
 
   // 3. Transaction - User + Profile must both succeed or both fail
+  // withTransaction handles commit / abort / retry automatically.
+  // No try / catch needed here - any throw is caught by asyncHandlerMiddleware in the route.
   const session = await mongoose.startSession();
-  session.startTransaction();
+  let user = null;
+  let profile = null;
   try {
-    const [user] = await User.create([{ name, email, phone, password, role }], { session });
+    await session.withTransaction(async () => {
+      [user] = await User.create([{ name, email, phone, password, role }], { session });
 
-    let profile = null;
-    if (role === 'teacher') {
-      [profile] = await TeacherProfile.create([{ userId: user._id, qualification, dateOfBirth, gender, address }], { session });
-    }
-    if (role === 'student') {
-      [profile] = await StudentProfile.create(
-        [{ userId: user._id, classId, sectionId, rollNumber, admissionNumber, dateOfBirth, gender, address, guardianName, guardianPhone }],
-        { session },
-      );
-    }
-
-    await session.commitTransaction();
-
-    if (profile && role === 'student') {
-      await profile.populate([
-        { path: 'classId', select: 'name' },
-        { path: 'sectionId', select: 'name' },
-      ]);
-    }
-
-    const message = `${role.charAt(0).toUpperCase() + role.slice(1)} created successfully`;
-    return ApiResponse.send(res, 201, { user: mergeUserProfile(user, profile) }, message);
-  } catch (err) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    return next(err);
+      if (role === 'teacher') {
+        [profile] = await TeacherProfile.create([{ userId: user._id, qualification, dateOfBirth, gender, address }], { session });
+      }
+      if (role === 'student') {
+        [profile] = await StudentProfile.create(
+          [{ userId: user._id, classId, sectionId, rollNumber, admissionNumber, dateOfBirth, gender, address, guardianName, guardianPhone }],
+          { session },
+        );
+      }
+    });
   } finally {
-    session.endSession();
+    await session.endSession();
   }
+
+  if (profile && role === 'student') {
+    await profile.populate([
+      { path: 'classId', select: 'name' },
+      { path: 'sectionId', select: 'name' },
+    ]);
+  }
+
+  const message = `${role.charAt(0).toUpperCase() + role.slice(1)} created successfully`;
+  return ApiResponse.send(res, 201, { user: mergeUserProfile(user, profile) }, message);
 };
 
+// PATCH /api/v1/users/me/password - Any logged-in user
 exports.updatePassword = async (req, res, next) => {
   const { oldPassword, newPassword } = req.body;
 
@@ -136,6 +135,7 @@ exports.updatePassword = async (req, res, next) => {
   }
 
   user.password = newPassword;
+  // Invalidate all existing refresh tokens after password change
   user.refreshTokenVersion = (user.refreshTokenVersion || 0) + 1;
   await user.save();
 
