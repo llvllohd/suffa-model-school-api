@@ -1,54 +1,59 @@
 const mongoose = require('mongoose');
 
+const teacherAttendanceRecordSchema = new mongoose.Schema(
+  {
+    teacherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Teacher',
+      required: [true, 'Teacher is required'],
+    },
+    status: {
+      type: String,
+      enum: { values: ['Present', 'Absent'], message: 'Status must be Present or Absent' },
+      default: 'Present',
+    },
+    reason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+  },
+  { _id: false },
+);
+
 const teacherAttendanceSchema = new mongoose.Schema(
   {
+    // Format: "2026-11-22"
     date: {
-      type: String, // "2026-11-14"
+      type: String,
       required: [true, 'Date is required'],
-      unique: true,
-      index: true,
     },
-    markedBy: {
+    takenByAdminId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User', // ✅ Admin's users._id - NEVER 'Auth'
+      ref: 'User',
       required: [true, 'Admin is required'],
     },
     records: {
-      type: [
-        {
-          teacherId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Teacher',
-            required: true,
-          },
-          status: {
-            type: String,
-            enum: ['Present', 'Absent'],
-            default: 'Present',
-            required: true,
-          },
-          reason: {
-            type: String,
-            trim: true,
-            default: '',
-          },
-        },
-      ],
-      default: [],
+      type: [teacherAttendanceRecordSchema],
+      required: [true, 'Records are required'],
+      validate: {
+        validator: (v) => Array.isArray(v) && v.length > 0,
+        message: 'At least one attendance record is required',
+      },
     },
-    totalPresent: {
-      type: Number,
-      default: 0,
-    },
-    totalAbsent: {
-      type: Number,
-      default: 0,
-    },
+    totalPresent: { type: Number, default: 0 },
+    totalAbsent: { type: Number, default: 0 },
+    // No isActive here - Attendance is history, never deactivate or delete
   },
   { timestamps: true },
 );
 
-// Unique - 1 Day = 1 Entry for whole School
+// 1 Day = 1 Entry - also serves monthly summary (date prefix)
 teacherAttendanceSchema.index({ date: 1 }, { unique: true });
+
+teacherAttendanceSchema.pre('save', function () {
+  this.totalPresent = this.records.filter((r) => r.status === 'Present').length;
+  this.totalAbsent = this.records.filter((r) => r.status === 'Absent').length;
+});
 
 module.exports = mongoose.model('TeacherAttendance', teacherAttendanceSchema);

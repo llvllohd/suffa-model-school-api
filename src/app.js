@@ -24,7 +24,8 @@ const subjectAllocationRoutes = require('@/modules/subjectAllocations/subjectAll
 const subjectAssignmentRoutes = require('@/modules/subjectAssignments/subjectAssignment.routes');
 const markSheetRoutes = require('@/modules/markSheets/markSheet.routes');
 const progressReportRoutes = require('@/modules/progressReports/progressReport.routes');
-// const attendanceRoutes = require('@/modules/attendance/attendance.routes');
+const studentAttendanceRoutes = require('@/modules/studentAttendance/studentAttendance.routes');
+const teacherAttendanceRoutes = require('@/modules/teacherAttendance/teacherAttendance.routes');
 // const examRoutes = require('@/modules/exams/exam.routes');
 // const dashboardRoutes = require('@/modules/dashboard/dashboard.routes');
 
@@ -89,7 +90,8 @@ app.use('/api/v1/subject-allocations', subjectAllocationRoutes); // CRUD subject
 app.use('/api/v1/subject-assignments', subjectAssignmentRoutes); // CRUD subject assignments
 app.use('/api/v1/mark-sheets', markSheetRoutes); // CRUD mark sheets
 app.use('/api/v1/progress-reports', progressReportRoutes); // Progress reports
-// app.use('/api/v1/attendance', attendanceRoutes); // Daily attendance
+app.use('/api/v1/student-attendance', studentAttendanceRoutes); // Student attendance - Teacher takes, Admin/Teacher view, Student views own
+app.use('/api/v1/teacher-attendance', teacherAttendanceRoutes); // Teacher attendance - Admin takes, Teacher views own
 // app.use('/api/v1/exams', examRoutes); // Exams, marks, report card
 // app.use('/api/v1/admin/dashboard', dashboardRoutes); // Total students, teachers, fees stats
 
