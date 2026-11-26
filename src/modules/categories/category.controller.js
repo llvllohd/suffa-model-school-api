@@ -59,7 +59,7 @@ exports.deleteCategory = async (req, res, next) => {
       isActive: true,
       $or: [{ 'categoriesOverride.categoryId': category._id }, { removedCategoryIds: category._id }],
     }).lean(),
-    MarkSheet.findOne({ isActive: true, 'marks.categoryId': category._id }).lean(),
+    MarkSheet.findOne({ 'marks.categoryId': category._id }).lean(),
   ]);
 
   if (usedInSubject || usedInAssignment || usedInMarkSheet) {

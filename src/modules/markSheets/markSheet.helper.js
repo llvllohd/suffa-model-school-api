@@ -98,7 +98,7 @@ const populateMarkSheet = (query) =>
     .populate('assignmentId', 'semester calendarMonth academicYear status')
     .populate({
       path: 'studentId',
-      select: 'rollNo classId sectionId userId',
+      select: 'rollNumber classId sectionId userId',
       populate: { path: 'userId', select: 'name phone email' },
     })
     .populate({ path: 'marks.categoryId', select: 'name' })

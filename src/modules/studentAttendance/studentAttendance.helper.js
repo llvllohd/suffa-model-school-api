@@ -31,7 +31,7 @@ const populateAttendance = (query) =>
     .populate('sectionId', 'name')
     .populate({
       path: 'records.studentId',
-      select: 'rollNo classId sectionId userId',
+      select: 'rollNumber classId sectionId userId',
       populate: { path: 'userId', select: 'name phone email' },
     })
     .populate({ path: 'takenByTeacherId', populate: { path: 'userId', select: 'name email phone role avatar isActive' } });

@@ -30,7 +30,7 @@ const errorHandler = (err, req, res, next) => {
       phone: 'phone number',
       name: 'name',
       admissionNumber: 'admission number',
-      rollNo: 'roll number',
+      rollNumber: 'roll number',
     };
     const label = userFacingFields[field] || 'value';
     const message = `This ${label} is already in use. Please try another.`;

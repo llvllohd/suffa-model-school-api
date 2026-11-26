@@ -27,7 +27,9 @@ const sanitizeProfile = (profile) => {
   // Drop userId / classId / sectionId - They are replaced by class / section below
   const { _id, __v, userId, classId, sectionId, createdAt, updatedAt, ...rest } = p;
 
-  const out = {};
+  // Profile id (Teacher._id / Student._id) - Clients need it for calls like
+  // /progress-reports?studentId= and /teacher-attendance/summary?teacherId=
+  const out = { profileId: _id };
   // Only include fields with value - Skips null / undefined
   // rollNumber, admissionNumber, guardianName, guardianPhone, qualification etc. come from here
   for (const [key, value] of Object.entries(rest)) {

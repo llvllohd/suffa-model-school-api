@@ -39,7 +39,7 @@ exports.getAdminDashboard = async (req, res, next) => {
     Class.countDocuments({ isActive: true }),
     Subject.countDocuments({ isActive: true }),
     SubjectAssignment.countDocuments({ isActive: true }),
-    MarkSheet.countDocuments({ isActive: true }),
+    MarkSheet.countDocuments({}),
   ]);
 
   // Today - Student Attendance: totals across all classes
@@ -192,7 +192,7 @@ exports.getStudentDashboard = async (req, res, next) => {
 
   // No ProgressReport model exists - ProgressReport is derived from MarkSheet
   // So the latest MarkSheet represents the latest progress
-  const latestMarkSheet = await MarkSheet.findOne({ studentId: student._id, isActive: true }).sort({ createdAt: -1 }).lean();
+  const latestMarkSheet = await MarkSheet.findOne({ studentId: student._id }).sort({ createdAt: -1 }).lean();
 
   return ApiResponse.send(
     res,
@@ -200,7 +200,7 @@ exports.getStudentDashboard = async (req, res, next) => {
     {
       dashboard: {
         monthKey,
-        student: { className: student.classId?.name || '', sectionName: student.sectionId?.name || '', rollNo: student.rollNo || '' },
+        student: { className: student.classId?.name || '', sectionName: student.sectionId?.name || '', rollNumber: student.rollNumber ?? '' },
         myAttendance: { totalDays, totalPresent, totalAbsent, percentage: getPercentage(totalPresent, totalDays) },
         latestMarkSheet: latestMarkSheet || null,
       },

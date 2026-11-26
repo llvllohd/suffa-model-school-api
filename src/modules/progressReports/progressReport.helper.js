@@ -49,7 +49,7 @@ const buildProgressReport = (sheets) => {
     student: studentDoc
       ? {
           _id: studentDoc._id,
-          rollNo: studentDoc.rollNo,
+          rollNumber: studentDoc.rollNumber,
           name: studentDoc.userId?.name || null,
           phone: studentDoc.userId?.phone || null,
         }
@@ -78,7 +78,7 @@ const populateForReport = (query) =>
     })
     .populate({
       path: 'studentId',
-      select: 'rollNo classId sectionId userId',
+      select: 'rollNumber classId sectionId userId',
       populate: { path: 'userId', select: 'name phone' },
     })
     .populate({ path: 'marks.categoryId', select: 'name' });
